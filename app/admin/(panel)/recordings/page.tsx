@@ -36,7 +36,10 @@ export default async function Recordings({ searchParams }: { searchParams: Promi
       {!getBlobToken() && (
         <div className="flex gap-3 rounded-2xl border border-accent/40 bg-accent-soft p-4 text-sm">
           <AlertTriangle className="mt-0.5 shrink-0 text-accent" size={18} />
-          <p><b>Audio storage isn’t connected.</b> Uploads will fail until a Vercel Blob store is connected to this project (Vercel → your project → Storage → Create Blob → Connect), then redeploy.</p>
+          <div>
+            <p><b>Audio storage isn’t connected.</b> This deployment can’t see a Blob token. Connect a Blob store to this project (Vercel → Storage → your store → Connect Project, all environments), then <b>redeploy</b>. Variables only apply to deployments created after they were added.</p>
+            <p className="mt-2 text-xs text-muted">Blob-related variable names this deployment can see: {Object.keys(process.env).filter((k) => /BLOB|READ_WRITE|STORE/i.test(k)).join(", ") || "none"}</p>
+          </div>
         </div>
       )}
       <PageHeader title="Recordings" subtitle="Upload the clips and choose which form each one belongs to. Participants never see speaker ID, gender or style, and files get random names." />
