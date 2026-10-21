@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { del } from "@vercel/blob";
 import { sql } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
+import { getBlobToken } from "@/lib/blob";
 
 const deny = () => NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -49,6 +50,6 @@ export async function DELETE(req: Request) {
   if (!id) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   const db = sql();
   const rows = (await db`DELETE FROM clips WHERE id = ${id} RETURNING blob_url`) as { blob_url: string }[];
-  if (rows[0]) { try { await del(rows[0].blob_url); } catch {} }
+  if (rows[0]) { try { await del(rows[0].blob_url, { token: getBlobToken() }); } catch {} }
   return NextResponse.json({ ok: true });
 }

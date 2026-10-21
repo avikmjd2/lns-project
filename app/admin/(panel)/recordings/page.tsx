@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { loadAdminCtx } from "@/lib/admin-ctx";
 import { sql } from "@/lib/db";
+import { getBlobToken } from "@/lib/blob";
 import { ClipActions, UploadForm } from "@/components/admin/bits";
 import { Badge, PageHeader, Panel } from "@/components/admin/ui";
 
@@ -32,7 +33,7 @@ export default async function Recordings({ searchParams }: { searchParams: Promi
 
   return (
     <div className="space-y-6">
-      {!process.env.BLOB_READ_WRITE_TOKEN && (
+      {!getBlobToken() && (
         <div className="flex gap-3 rounded-2xl border border-accent/40 bg-accent-soft p-4 text-sm">
           <AlertTriangle className="mt-0.5 shrink-0 text-accent" size={18} />
           <p><b>Audio storage isn’t connected.</b> Uploads will fail until a Vercel Blob store is connected to this project (Vercel → your project → Storage → Create Blob → Connect), then redeploy.</p>
