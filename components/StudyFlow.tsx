@@ -3,14 +3,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getLocale } from "@/locales";
 
+type Q = {
+  id: number; kind: "scale" | "text"; scope: "clip" | "final"; prompt: string;
+  min: number; max: number; low: string | null; high: string | null; required: boolean; clipIds: number[] | null;
+};
 type StudyInfo = {
   slug: string; name: string; locale: string; status: string;
   base_language: string; mix_language: string;
   intro: string | null; debrief: string | null;
-  traits: { key: string; label: string }[];
+  questions: Q[];
 };
 type Clip = { id: number; url: string };
-type Step = "loading" | "closed" | "welcome" | "about" | "clips" | "done";
+type Step = "loading" | "closed" | "welcome" | "about" | "clips" | "final" | "done";
+type Answers = Record<number, number | string>;
+type L = ReturnType<typeof getLocale>;
+
+const post = (url: string, body: unknown) =>
+  fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
 export default function StudyFlow({ slug }: { slug: string }) {
   const [study, setStudy] = useState<StudyInfo | null>(null);
@@ -23,6 +32,8 @@ export default function StudyFlow({ slug }: { slug: string }) {
   const key = `lns_pid_${slug}`;
 
   const t = useMemo(() => getLocale(study?.locale), [study?.locale]);
+  const clipQs = useMemo(() => study?.questions.filter((q) => q.scope === "clip") ?? [], [study]);
+  const finalQs = useMemo(() => study?.questions.filter((q) => q.scope === "final") ?? [], [study]);
 
   useEffect(() => {
     (async () => {
@@ -40,31 +51,29 @@ export default function StudyFlow({ slug }: { slug: string }) {
             const p = await pr.json();
             if (p.completed) { setPid(saved); setClips(p.clips); setStep("done"); return; }
             const firstOpen = p.clips.findIndex((c: Clip) => !p.done.includes(c.id));
-            if (firstOpen < 0 && p.clips.length > 0) {
-              // Everything rated but completion didn't register: finish it now.
-              const cr = await fetch("/api/complete", {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ participantId: saved }),
-              });
-              if (cr.ok) { setPid(saved); setClips(p.clips); setStep("done"); return; }
-            } else if (firstOpen >= 0) {
+            const hasFinal = s.questions.some((q) => q.scope === "final");
+            if (firstOpen >= 0) {
               setPid(saved); setClips(p.clips); setIdx(firstOpen); setResumed(p.done.length > 0); setStep("clips"); return;
+            }
+            if (p.clips.length > 0) {
+              // All clips answered but not finished: collect final answers, or finish straight away.
+              setPid(saved); setClips(p.clips); setResumed(true);
+              if (hasFinal) { setStep("final"); return; }
+              const cr = await post("/api/complete", { participantId: saved });
+              if (cr.ok) { setStep("done"); return; }
             }
           }
         }
         setStep("welcome");
       } catch {
-        setStep("welcome");
+        setStep("closed");
       }
     })();
   }, [slug, key]);
 
   const start = useCallback(async (gender: string, age: number) => {
     setError(null);
-    const r = await fetch("/api/participant", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug, gender, age }),
-    });
+    const r = await post("/api/participant", { slug, gender, age });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
       setError(j.error === "no_clips" ? t.noClips : t.saveError);
@@ -75,12 +84,17 @@ export default function StudyFlow({ slug }: { slug: string }) {
     setPid(p.participantId); setClips(p.clips); setIdx(0); setStep("clips");
   }, [slug, key, t]);
 
+  async function finish(answers?: Answers) {
+    const r = await post("/api/complete", { participantId: pid, answers });
+    if (!r.ok) throw new Error("complete");
+    setStep("done"); window.scrollTo({ top: 0 });
+  }
+
   if (step === "loading" || !study) {
     return <Shell><p className="text-muted text-center py-24">…</p></Shell>;
   }
   const total = clips.length || 4;
-  // welcome = 0, about = 1/(total+2), clips advance, done = 1
-  const progress = step === "welcome" ? 0.02 : step === "about" ? 0.08 : step === "clips" ? 0.12 + (0.86 * idx) / total : 1;
+  const progress = step === "welcome" ? 0.02 : step === "about" ? 0.08 : step === "clips" ? 0.12 + (0.84 * idx) / total : step === "final" ? 0.97 : 1;
 
   return (
     <Shell progress={step === "closed" ? undefined : progress}>
@@ -92,18 +106,16 @@ export default function StudyFlow({ slug }: { slug: string }) {
       {step === "clips" && pid && clips[idx] && (
         <ClipStep
           key={clips[idx].id}
-          t={t} traits={study.traits} pid={pid} clip={clips[idx]} index={idx} total={clips.length}
+          t={t} questions={clipQs.filter((q) => !q.clipIds || q.clipIds.includes(clips[idx].id))} pid={pid} clip={clips[idx]} index={idx} total={clips.length}
           resumed={resumed && idx > 0}
           onSaved={async () => {
             if (idx + 1 < clips.length) { setIdx(idx + 1); setResumed(false); window.scrollTo({ top: 0 }); return; }
-            const r = await fetch("/api/complete", {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ participantId: pid }),
-            });
-            if (r.ok) { setStep("done"); window.scrollTo({ top: 0 }); } else throw new Error("complete");
+            if (finalQs.length) { setStep("final"); window.scrollTo({ top: 0 }); return; }
+            await finish();
           }}
         />
       )}
+      {step === "final" && pid && <FinalStep t={t} questions={finalQs} onDone={finish} />}
       {step === "done" && (
         <Card>
           <div className="text-5xl" aria-hidden>🎧</div>
@@ -134,7 +146,9 @@ function Card({ children }: { children: React.ReactNode }) {
   return <section className="rise rounded-3xl border border-line bg-card p-6 shadow-sm sm:p-8">{children}</section>;
 }
 
-function Welcome({ t, study, onStart }: { t: ReturnType<typeof getLocale>; study: StudyInfo; onStart: () => void }) {
+const primaryBtn = "mt-6 h-14 w-full rounded-2xl bg-brand text-lg font-semibold text-brand-ink transition active:scale-[0.99] disabled:opacity-40";
+
+function Welcome({ t, study, onStart }: { t: L; study: StudyInfo; onStart: () => void }) {
   const [ok, setOk] = useState(false);
   return (
     <Card>
@@ -142,7 +156,7 @@ function Welcome({ t, study, onStart }: { t: ReturnType<typeof getLocale>; study
       <h1 className="mt-2 text-3xl font-semibold leading-tight">{t.welcomeTitle}</h1>
       <p className="mt-4 leading-relaxed">{study.intro || t.welcomeLead}</p>
       <ul className="mt-5 space-y-2">
-        {t.welcomeFacts(4).map((f) => (
+        {t.welcomeFacts.map((f) => (
           <li key={f} className="flex gap-3 text-sm"><span className="mt-0.5 text-brand" aria-hidden>✓</span><span>{f}</span></li>
         ))}
       </ul>
@@ -150,15 +164,12 @@ function Welcome({ t, study, onStart }: { t: ReturnType<typeof getLocale>; study
         <input type="checkbox" className="mt-0.5 h-5 w-5 accent-[var(--brand)]" checked={ok} onChange={(e) => setOk(e.target.checked)} />
         <span>{t.consent}</span>
       </label>
-      <button disabled={!ok} onClick={onStart}
-        className="mt-6 h-14 w-full rounded-2xl bg-brand text-lg font-semibold text-brand-ink transition active:scale-[0.99] disabled:opacity-40">
-        {t.start}
-      </button>
+      <button disabled={!ok} onClick={onStart} className={primaryBtn}>{t.start}</button>
     </Card>
   );
 }
 
-function About({ t, onSubmit, error }: { t: ReturnType<typeof getLocale>; onSubmit: (g: string, a: number) => Promise<void>; error: string | null }) {
+function About({ t, onSubmit, error }: { t: L; onSubmit: (g: string, a: number) => Promise<void>; error: string | null }) {
   const [gender, setGender] = useState("");
   const [age, setAge] = useState("");
   const [busy, setBusy] = useState(false);
@@ -190,30 +201,69 @@ function About({ t, onSubmit, error }: { t: ReturnType<typeof getLocale>; onSubm
       {error && <p className="mt-4 text-sm text-accent" role="alert">{error}</p>}
       <button disabled={!gender || !ageOk || busy}
         onClick={async () => { setBusy(true); await onSubmit(gender, ageN); setBusy(false); }}
-        className="mt-6 h-14 w-full rounded-2xl bg-brand text-lg font-semibold text-brand-ink transition active:scale-[0.99] disabled:opacity-40">
+        className={primaryBtn}>
         {busy ? t.saving : t.continue}
       </button>
     </Card>
   );
 }
 
+/** One question: a scale of buttons (any range, e.g. 1-5 or 1-10) or a free-text box. */
+function QuestionField({ q, value, disabled, onChange, t }: {
+  q: Q; value: number | string | undefined; disabled?: boolean; onChange: (v: number | string) => void; t: L;
+}) {
+  const id = `q-${q.id}`;
+  if (q.kind === "text") {
+    return (
+      <div>
+        <label htmlFor={id} className="mb-2 block font-medium">{q.prompt}{!q.required && <span className="font-normal text-muted"> {t.optional}</span>}</label>
+        <textarea id={id} rows={4} maxLength={2000} disabled={disabled} value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)}
+          placeholder={t.textPlaceholder}
+          className="w-full rounded-2xl border-2 border-line bg-card p-3 text-base outline-none focus:border-brand" />
+      </div>
+    );
+  }
+  const n = q.max - q.min + 1;
+  const cols = n <= 6 ? n : n <= 10 ? 5 : 6;
+  return (
+    <div>
+      <p className="mb-2 font-medium" id={`${id}-l`}>{q.prompt}{!q.required && <span className="font-normal text-muted"> {t.optional}</span>}</p>
+      <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }} role="radiogroup" aria-labelledby={`${id}-l`}>
+        {Array.from({ length: n }, (_, i) => q.min + i).map((v) => (
+          <button key={v} type="button" role="radio" aria-checked={value === v} disabled={disabled}
+            onClick={() => onChange(v)}
+            className={`h-12 rounded-xl border-2 text-lg font-semibold transition active:scale-95 ${value === v ? "border-brand bg-brand text-brand-ink" : "border-line bg-card"}`}>
+            {v}
+          </button>
+        ))}
+      </div>
+      <div className="mt-1 flex justify-between text-xs text-muted"><span>{q.low ?? ""}</span><span>{q.high ?? ""}</span></div>
+    </div>
+  );
+}
+
+function answered(q: Q, a: Answers) {
+  const v = a[q.id];
+  return q.kind === "scale" ? typeof v === "number" : typeof v === "string" && v.trim() !== "";
+}
+const canSubmit = (qs: Q[], a: Answers) => qs.every((q) => !q.required || answered(q, a));
+
 function ClipStep(props: {
-  t: ReturnType<typeof getLocale>; traits: { key: string; label: string }[];
-  pid: string; clip: Clip; index: number; total: number; resumed: boolean;
+  t: L; questions: Q[]; pid: string; clip: Clip; index: number; total: number; resumed: boolean;
   onSaved: () => Promise<void>;
 }) {
-  const { t, traits, pid, clip, index, total } = props;
+  const { t, questions, pid, clip, index, total } = props;
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [pos, setPos] = useState(0);
   const [maxPct, setMaxPct] = useState(0);
   const [audioFailed, setAudioFailed] = useState(false);
-  const [scores, setScores] = useState<Record<string, number>>({});
+  const [answers, setAnswers] = useState<Answers>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const unlocked = maxPct >= 80;
-  const complete = traits.every((tr) => scores[tr.key]);
+  const complete = canSubmit(questions, answers);
 
   function toggle() {
     const a = audioRef.current; if (!a) return;
@@ -226,10 +276,7 @@ function ClipStep(props: {
   async function save() {
     setBusy(true); setErr(null);
     try {
-      const r = await fetch("/api/rating", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ participantId: pid, clipId: clip.id, scores, playedPct: maxPct }),
-      });
+      const r = await post("/api/rating", { participantId: pid, clipId: clip.id, answers, playedPct: maxPct });
       if (!r.ok) throw new Error("rating");
       await props.onSaved();
     } catch {
@@ -237,7 +284,7 @@ function ClipStep(props: {
     }
   }
 
-  const encouragement = t.encouragement[Math.min(index, t.encouragement.length - 1)];
+  const encouragement = t.encouragement[Math.min(index, t.encouragement.length - 2)];
   const last = index + 1 === total;
 
   return (
@@ -273,22 +320,10 @@ function ClipStep(props: {
       </div>
 
       <div className={`mt-6 transition-opacity ${unlocked ? "opacity-100" : "pointer-events-none opacity-40"}`} aria-disabled={!unlocked}>
-        <h2 className="font-medium">{t.ratePrompt}</h2>
-        <div className="mt-4 space-y-5">
-          {traits.map((tr) => (
-            <div key={tr.key}>
-              <p className="mb-2 font-medium" id={`l-${tr.key}`}>{tr.label}</p>
-              <div className="grid grid-cols-5 gap-2" role="radiogroup" aria-labelledby={`l-${tr.key}`}>
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <button key={n} type="button" role="radio" aria-checked={scores[tr.key] === n} disabled={!unlocked}
-                    onClick={() => setScores((s) => ({ ...s, [tr.key]: n }))}
-                    className={`h-12 rounded-xl border-2 text-lg font-semibold transition active:scale-95 ${scores[tr.key] === n ? "border-brand bg-brand text-brand-ink" : "border-line bg-card"}`}>
-                    {n}
-                  </button>
-                ))}
-              </div>
-              <div className="mt-1 flex justify-between text-xs text-muted"><span>{t.scaleLow}</span><span>{t.scaleHigh}</span></div>
-            </div>
+        <div className="space-y-6">
+          {questions.map((q) => (
+            <QuestionField key={q.id} q={q} t={t} disabled={!unlocked} value={answers[q.id]}
+              onChange={(v) => setAnswers((a) => ({ ...a, [q.id]: v }))} />
           ))}
         </div>
       </div>
@@ -296,9 +331,33 @@ function ClipStep(props: {
       {!unlocked && <p className="mt-4 text-sm text-muted">{t.listenLocked}</p>}
       {unlocked && !complete && <p className="mt-4 text-sm text-muted">{t.missing}</p>}
       {err && <p className="mt-4 text-sm text-accent" role="alert">{err}</p>}
-      <button disabled={!unlocked || !complete || busy} onClick={save}
-        className="mt-6 h-14 w-full rounded-2xl bg-brand text-lg font-semibold text-brand-ink transition active:scale-[0.99] disabled:opacity-40">
+      <button disabled={!unlocked || !complete || busy} onClick={save} className={primaryBtn}>
         {busy ? t.saving : last ? t.finish : t.next}
+      </button>
+    </Card>
+  );
+}
+
+function FinalStep({ t, questions, onDone }: { t: L; questions: Q[]; onDone: (a: Answers) => Promise<void> }) {
+  const [answers, setAnswers] = useState<Answers>({});
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <Card>
+      <h1 className="text-2xl font-semibold">{t.finalTitle}</h1>
+      <p className="mt-1 text-muted">{t.finalLead}</p>
+      <div className="mt-6 space-y-6">
+        {questions.map((q) => (
+          <QuestionField key={q.id} q={q} t={t} value={answers[q.id]} onChange={(v) => setAnswers((a) => ({ ...a, [q.id]: v }))} />
+        ))}
+      </div>
+      {err && <p className="mt-4 text-sm text-accent" role="alert">{err}</p>}
+      <button disabled={!canSubmit(questions, answers) || busy} className={primaryBtn}
+        onClick={async () => {
+          setBusy(true); setErr(null);
+          try { await onDone(answers); } catch { setErr(t.saveError); setBusy(false); }
+        }}>
+        {busy ? t.saving : t.finish}
       </button>
     </Card>
   );

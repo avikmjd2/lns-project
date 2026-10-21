@@ -1,23 +1,31 @@
 import { NextResponse } from "next/server";
-import { DEFAULT_TRAIT_LABELS, TRAITS, getStudy } from "@/lib/db";
+import { getQuestions, getStudy } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 // Public study info. Deliberately exposes nothing about clips, guises or speaker gender.
 export async function GET(_req: Request, ctx: { params: Promise<{ slug: string }> }) {
-  const { slug } = await ctx.params;
-  const s = await getStudy(slug);
-  if (!s) return NextResponse.json({ error: "not found" }, { status: 404 });
-  const labels = { ...DEFAULT_TRAIT_LABELS, ...(s.traits ?? {}) };
-  return NextResponse.json({
-    slug: s.slug,
-    name: s.name,
-    locale: s.locale,
-    status: s.status,
-    base_language: s.base_language,
-    mix_language: s.mix_language,
-    intro: s.intro,
-    debrief: s.debrief,
-    traits: TRAITS.map((k) => ({ key: k, label: labels[k] })),
-  });
+  try {
+    const { slug } = await ctx.params;
+    const s = await getStudy(slug);
+    if (!s) return NextResponse.json({ error: "not found" }, { status: 404 });
+    const questions = await getQuestions(s.id);
+    return NextResponse.json({
+      slug: s.slug,
+      name: s.name,
+      locale: s.locale,
+      status: s.status,
+      base_language: s.base_language,
+      mix_language: s.mix_language,
+      intro: s.intro,
+      debrief: s.debrief,
+      questions: questions.map((q) => ({
+        id: q.id, kind: q.kind, scope: q.scope, prompt: q.prompt, min: q.scale_min, max: q.scale_max,
+        low: q.low_label, high: q.high_label, required: q.required, clipIds: q.clip_ids,
+      })),
+    });
+  } catch (e) {
+    // Most common cause: the database tables have not been created yet (Admin > Set up database).
+    return NextResponse.json({ error: "server", detail: (e as Error).message }, { status: 500 });
+  }
 }

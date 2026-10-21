@@ -1,4 +1,5 @@
 // One statement per entry (Neon's HTTP driver runs a single statement per call).
+// Idempotent: safe to run repeatedly, and upgrades the first (fixed 5-trait) version of the schema.
 export const SCHEMA: string[] = [
   `CREATE TABLE IF NOT EXISTS studies (
     id SERIAL PRIMARY KEY,
@@ -35,20 +36,55 @@ export const SCHEMA: string[] = [
     started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     completed_at TIMESTAMPTZ
   )`,
+  // One row per (participant, clip) once the clip's questions are answered.
   `CREATE TABLE IF NOT EXISTS ratings (
     id SERIAL PRIMARY KEY,
     participant_id UUID NOT NULL REFERENCES participants(id) ON DELETE CASCADE,
     clip_id INT NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
-    friendly INT NOT NULL CHECK (friendly BETWEEN 1 AND 5),
-    likable INT NOT NULL CHECK (likable BETWEEN 1 AND 5),
-    like_me INT NOT NULL CHECK (like_me BETWEEN 1 AND 5),
-    educated INT NOT NULL CHECK (educated BETWEEN 1 AND 5),
-    confident INT NOT NULL CHECK (confident BETWEEN 1 AND 5),
     played_pct INT,
     rated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (participant_id, clip_id)
   )`,
+  // Upgrade from the first schema (fixed trait columns); those columns are no longer used.
+  `ALTER TABLE ratings DROP COLUMN IF EXISTS friendly`,
+  `ALTER TABLE ratings DROP COLUMN IF EXISTS likable`,
+  `ALTER TABLE ratings DROP COLUMN IF EXISTS like_me`,
+  `ALTER TABLE ratings DROP COLUMN IF EXISTS educated`,
+  `ALTER TABLE ratings DROP COLUMN IF EXISTS confident`,
+  `CREATE TABLE IF NOT EXISTS questions (
+    id SERIAL PRIMARY KEY,
+    study_id INT NOT NULL REFERENCES studies(id) ON DELETE CASCADE,
+    position INT NOT NULL DEFAULT 0,
+    kind TEXT NOT NULL CHECK (kind IN ('scale','text')),
+    scope TEXT NOT NULL DEFAULT 'clip' CHECK (scope IN ('clip','final')),
+    prompt TEXT NOT NULL,
+    scale_min INT NOT NULL DEFAULT 1,
+    scale_max INT NOT NULL DEFAULT 5,
+    low_label TEXT,
+    high_label TEXT,
+    required BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`,
+  // clip_id is NULL for end-of-survey (scope 'final') questions.
+  `CREATE TABLE IF NOT EXISTS answers (
+    id SERIAL PRIMARY KEY,
+    participant_id UUID NOT NULL REFERENCES participants(id) ON DELETE CASCADE,
+    clip_id INT REFERENCES clips(id) ON DELETE CASCADE,
+    question_id INT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    num_value INT,
+    text_value TEXT,
+    answered_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`,
+  // NULL = the question is asked for every clip; otherwise only for the listed clip ids.
+  `ALTER TABLE questions ADD COLUMN IF NOT EXISTS clip_ids INT[]`,
+  `CREATE INDEX IF NOT EXISTS answers_participant_idx ON answers (participant_id)`,
   `INSERT INTO studies (slug, name, base_language, mix_language)
    VALUES ('hindi', 'Voices & Speaking Styles', 'Hindi', 'English')
    ON CONFLICT (slug) DO NOTHING`,
+  // Seed the five default 1-5 clip questions for any study that has no questions yet.
+  `INSERT INTO questions (study_id, position, kind, scope, prompt, scale_min, scale_max, low_label, high_label)
+   SELECT s.id, v.pos, 'scale', 'clip', v.prompt, 1, 5, 'Not at all', 'Very'
+   FROM studies s
+   CROSS JOIN (VALUES (1,'Friendly'),(2,'Likable'),(3,'Someone like me'),(4,'Educated'),(5,'Confident')) AS v(pos, prompt)
+   WHERE NOT EXISTS (SELECT 1 FROM questions q WHERE q.study_id = s.id) AND s.slug = 'hindi'`,
 ];

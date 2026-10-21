@@ -7,7 +7,7 @@ type Row = { speaker: string; male: number | null; female: number | null; nMale:
 // Two series: listener gender. Teal + orange are well separated in lightness and hue.
 const COLORS = { male: "#0f766e", female: "#e8743b" };
 
-export default function ResultsChart({ title, data }: { title: string; data: Row[] }) {
+export default function ResultsChart({ title, data, min, max }: { title: string; data: Row[]; min: number; max: number }) {
   return (
     <figure className="rounded-2xl border border-line bg-card p-4">
       <figcaption className="mb-2 font-semibold">{title}</figcaption>
@@ -16,7 +16,7 @@ export default function ResultsChart({ title, data }: { title: string; data: Row
           <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }} barGap={2}>
             <CartesianGrid vertical={false} stroke="currentColor" strokeOpacity={0.12} />
             <XAxis dataKey="speaker" tickLine={false} axisLine={false} stroke="currentColor" fontSize={12} />
-            <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tickLine={false} axisLine={false} stroke="currentColor" fontSize={12} />
+            <YAxis domain={[min, max]} allowDecimals={false} tickLine={false} axisLine={false} stroke="currentColor" fontSize={12} />
             <Tooltip
               cursor={{ fill: "currentColor", fillOpacity: 0.06 }}
               contentStyle={{ borderRadius: 12, border: "1px solid var(--line)", background: "var(--card)", color: "var(--foreground)" }}

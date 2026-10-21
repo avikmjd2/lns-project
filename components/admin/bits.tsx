@@ -22,7 +22,7 @@ function NavInner({ slugs }: { slugs: { slug: string; name: string }[] }) {
   const router = useRouter();
   const study = sp.get("study") ?? slugs[0]?.slug ?? "";
   const q = study ? `?study=${study}` : "";
-  const links = [["/admin", "Overview"], ["/admin/recordings", "Recordings"], ["/admin/responses", "Responses"], ["/admin/results", "Results"]];
+  const links = [["/admin", "Overview"], ["/admin/recordings", "Recordings"], ["/admin/questions", "Questions"], ["/admin/responses", "Responses"], ["/admin/results", "Results"]];
   return (
     <header className="border-b border-line bg-card">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
@@ -192,5 +192,134 @@ export function DeleteParticipant({ id, studyId, all }: { id?: string; studyId?:
       await call("DELETE", all ? `/api/admin/participants?studyId=${studyId}&all=1` : `/api/admin/participants?id=${id}`);
       router.refresh();
     }}>{all ? "Clear all test data" : "Delete"}</button>
+  );
+}
+
+export type ClipOpt = { id: number; label: string };
+
+/** "All clips" or a checklist of specific clips. value null = all clips. */
+function ClipPicker({ clips, value, onChange, disabled }: { clips: ClipOpt[]; value: number[] | null; onChange: (v: number[] | null) => void; disabled?: boolean }) {
+  return (
+    <div className="space-y-2 text-sm">
+      <select className={`${field} !w-auto`} disabled={disabled} value={value ? "some" : "all"}
+        onChange={(e) => onChange(e.target.value === "all" ? null : clips.map((c) => c.id).slice(0, 1))}>
+        <option value="all">Every clip</option><option value="some">Only selected clips</option>
+      </select>
+      {value && (
+        <div className="grid gap-1 sm:grid-cols-2">
+          {clips.length === 0 && <p className="text-muted">Upload clips first.</p>}
+          {clips.map((c) => (
+            <label key={c.id} className="flex items-center gap-2">
+              <input type="checkbox" disabled={disabled} checked={value.includes(c.id)}
+                onChange={(e) => onChange(e.target.checked ? [...value, c.id] : value.filter((x) => x !== c.id))} />
+              {c.label}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function QuestionForm({ studyId, clips }: { studyId: number; clips: ClipOpt[] }) {
+  const router = useRouter();
+  const [f, setF] = useState({ prompt: "", kind: "scale", scope: "clip", scaleMin: 1, scaleMax: 5, low: "Not at all", high: "Very", required: true });
+  const [clipIds, setClipIds] = useState<number[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const isScale = f.kind === "scale";
+  return (
+    <form className="grid gap-3 sm:grid-cols-2" onSubmit={async (e) => {
+      e.preventDefault(); setBusy(true); setErr("");
+      try {
+        await call("POST", "/api/admin/questions", { studyId, ...f, clipIds: f.scope === "clip" ? clipIds : null });
+        setF({ ...f, prompt: "" }); router.refresh();
+      } catch (x) { setErr((x as Error).message); }
+      setBusy(false);
+    }}>
+      <input className={`${field} sm:col-span-2`} placeholder="Question text, e.g. How friendly does this speaker sound?" value={f.prompt} onChange={(e) => setF({ ...f, prompt: e.target.value })} required maxLength={300} />
+      <select className={field} value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}>
+        <option value="scale">Scale (numbers)</option><option value="text">Descriptive (free text)</option>
+      </select>
+      <select className={field} value={f.scope} onChange={(e) => setF({ ...f, scope: e.target.value })}>
+        <option value="clip">Ask after a recording</option><option value="final">Ask once, at the end</option>
+      </select>
+      {isScale && (
+        <>
+          <div className="flex items-center gap-2 text-sm">
+            <span>Scale from</span>
+            <input type="number" className={`${field} !w-20`} min={0} max={10} value={f.scaleMin} onChange={(e) => setF({ ...f, scaleMin: Number(e.target.value) })} />
+            <span>to</span>
+            <input type="number" className={`${field} !w-20`} min={1} max={11} value={f.scaleMax} onChange={(e) => setF({ ...f, scaleMax: Number(e.target.value) })} />
+          </div>
+          <div className="flex gap-2">
+            <input className={field} placeholder="Low end label" value={f.low} onChange={(e) => setF({ ...f, low: e.target.value })} />
+            <input className={field} placeholder="High end label" value={f.high} onChange={(e) => setF({ ...f, high: e.target.value })} />
+          </div>
+        </>
+      )}
+      {f.scope === "clip" && (
+        <div className="sm:col-span-2"><p className="mb-1 text-sm font-medium">Ask this for</p><ClipPicker clips={clips} value={clipIds} onChange={setClipIds} /></div>
+      )}
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.required} onChange={(e) => setF({ ...f, required: e.target.checked })} /> Required</label>
+      <button className={btn} disabled={busy}>{busy ? "Adding…" : "Add question"}</button>
+      {err && <p className="text-sm text-accent sm:col-span-2">{err}</p>}
+    </form>
+  );
+}
+
+export function QuestionRow({ q, n, clips }: {
+  clips: ClipOpt[];
+  q: { clip_ids: number[] | null; id: number; kind: string; scope: string; prompt: string; scale_min: number; scale_max: number; low_label: string | null; high_label: string | null; required: boolean };
+  n: number;
+}) {
+  const router = useRouter();
+  const [prompt, setPrompt] = useState(q.prompt);
+  const [busy, setBusy] = useState(false);
+  const [ids, setIds] = useState<number[] | null>(q.clip_ids);
+  const [idsErr, setIdsErr] = useState("");
+  const patch = async (b: object) => { setBusy(true); try { await call("PATCH", "/api/admin/questions", { id: q.id, ...b }); router.refresh(); } finally { setBusy(false); } };
+  return (
+    <li className="space-y-2 rounded-2xl border border-line bg-card p-4">
+      <div className="flex gap-2">
+        <input className={field} value={prompt} maxLength={300} onChange={(e) => setPrompt(e.target.value)}
+          onBlur={() => prompt.trim() && prompt !== q.prompt && patch({ prompt })} aria-label="Question text" />
+        <button className={btn2} disabled={busy} aria-label="Move up" onClick={() => patch({ move: "up" })}>↑</button>
+        <button className={btn2} disabled={busy} aria-label="Move down" onClick={() => patch({ move: "down" })}>↓</button>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+        <span className="rounded-full bg-brand-soft px-2.5 py-0.5">{q.kind === "scale" ? `Scale ${q.scale_min}–${q.scale_max}` : "Free text"}</span>
+        <label className="flex items-center gap-1">Asked
+          <select className={`${field} !w-auto`} disabled={busy} value={q.scope} onChange={(e) => patch({ scope: e.target.value })}>
+            <option value="clip">after a recording</option><option value="final">once, at the end</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-1"><input type="checkbox" checked={q.required} disabled={busy} onChange={(e) => patch({ required: e.target.checked })} /> Required</label>
+        <span className="text-muted">{n} answer{n === 1 ? "" : "s"}</span>
+        <button className={`${btn2} ml-auto`} disabled={busy} onClick={async () => {
+          if (!confirm(n ? `Delete this question and its ${n} collected answers?` : "Delete this question?")) return;
+          setBusy(true); await call("DELETE", `/api/admin/questions?id=${q.id}`); router.refresh(); setBusy(false);
+        }}>Delete</button>
+      </div>
+      {q.scope === "clip" && (
+        <div className="text-sm">
+          <p className="mb-1 text-muted">Asked for:</p>
+          <ClipPicker clips={clips} value={ids} disabled={busy} onChange={async (v) => {
+            setIds(v); setIdsErr("");
+            // A "selected clips" list is saved once at least one clip is ticked.
+            if (v === null || v.length > 0) {
+              try { await patch({ clipIds: v }); } catch (x) { setIdsErr((x as Error).message); }
+            } else setIdsErr("Pick at least one clip, or choose every clip.");
+          }} />
+          {idsErr && <p className="mt-1 text-accent">{idsErr}</p>}
+        </div>
+      )}
+      {q.kind === "scale" && (
+        <div className="flex gap-2">
+          <input className={field} defaultValue={q.low_label ?? ""} placeholder="Low end label" onBlur={(e) => e.target.value !== (q.low_label ?? "") && patch({ low: e.target.value })} />
+          <input className={field} defaultValue={q.high_label ?? ""} placeholder="High end label" onBlur={(e) => e.target.value !== (q.high_label ?? "") && patch({ high: e.target.value })} />
+        </div>
+      )}
+    </li>
   );
 }

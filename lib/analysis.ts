@@ -1,8 +1,12 @@
 import type { RatingRow } from "./admin-data";
 import { mean, sd, tPValue, welch, type TTest } from "./stats";
 
-export type Measure = "composite" | "friendly" | "likable" | "like_me" | "educated" | "confident";
-export const MEASURES: Measure[] = ["composite", "friendly", "likable", "like_me", "educated", "confident"];
+/** "composite" (mean of scale answers rescaled to 1-5) or a scale question id as a string. */
+export type Measure = string;
+
+export function val(r: RatingRow, m: Measure): number {
+  return m === "composite" ? r.composite : (r.scores[Number(m)] ?? NaN);
+}
 
 export type Cell = { listener: "male" | "female"; speaker: "male" | "female"; guise: "mixed" | "pure"; mean: number; sd: number; n: number };
 
@@ -11,7 +15,7 @@ export function cells(rows: RatingRow[], m: Measure): Cell[] {
   for (const guise of ["mixed", "pure"] as const)
     for (const speaker of ["male", "female"] as const)
       for (const listener of ["male", "female"] as const) {
-        const v = rows.filter((r) => r.guise === guise && r.speaker_gender === speaker && r.listener_gender === listener).map((r) => r[m]);
+        const v = rows.filter((r) => r.guise === guise && r.speaker_gender === speaker && r.listener_gender === listener).map((r) => val(r, m)).filter(Number.isFinite);
         out.push({ listener, speaker, guise, mean: mean(v), sd: sd(v), n: v.length });
       }
   return out;
@@ -27,7 +31,7 @@ function diffs(rows: RatingRow[], guise: "mixed" | "pure", listener: "male" | "f
   for (const r of rows) {
     if (r.guise !== guise || r.listener_gender !== listener) continue;
     const e = by.get(r.participant_id) ?? { male: [], female: [] };
-    e[r.speaker_gender].push(r[m]);
+    if (Number.isFinite(val(r, m))) e[r.speaker_gender].push(val(r, m));
     by.set(r.participant_id, e);
   }
   const out: number[] = [];

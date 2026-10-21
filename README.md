@@ -8,16 +8,18 @@ Built to host more studies later (e.g. Bangla): create one from **Admin > Overvi
 2. In the project's **Storage** tab, add **Neon Postgres** and **Blob**. This sets `DATABASE_URL` and `BLOB_READ_WRITE_TOKEN`.
 3. In **Settings > Environment Variables** add `ADMIN_PASSWORD` and `SESSION_SECRET` (random string, e.g. `openssl rand -hex 32`). Redeploy.
 4. Open `/admin`, log in, click **Set up database** (creates tables and the default `hindi` study).
-5. **Recordings**: upload the 8 clips. Form A = M1 mixed, M2 pure, F1 mixed, F2 pure. Form B = the opposite guises.
+5. **Questions**: edit the questions participants answer (scale 1-5, 1-10 or any range, or free text; after every clip or once at the end).
+6. **Recordings**: upload the 8 clips. Form A = M1 mixed, M2 pure, F1 mixed, F2 pure. Form B = the opposite guises.
    The checklist turns green when both forms are complete.
-6. **Overview**: set the study status to **open**, then share `https://<your-site>/s/hindi`.
-7. Before real collection, test the form yourself, then **Responses > Clear all test data**.
+7. **Overview**: set the study status to **open**, then share `https://<your-site>/s/hindi`.
+8. Before real collection, test the form yourself, then **Responses > Clear all test data**.
 
 ## Local dev
 `cp .env.example .env.local`, fill it in (`vercel env pull .env.local` works after linking), then `npm run dev`.
 
 ## Notes
 - Listener form is auto-assigned per listener gender so Form A/B stay balanced; clip order is shuffled.
+- Questions are managed in the admin panel. Re-running **Set up database** is safe and upgrades an older schema.
 - Ratings unlock after 80% of a clip has been played. Progress is saved after every clip and resumes on refresh.
 - Results page: cell means, bar charts, paired/Welch t-tests and suggested verdicts for H1/H2. CSV export is one row per rating.
 - All participant text is in `locales/en.ts`; add `locales/bn.ts` and register it in `locales/index.ts` for a Bangla UI.

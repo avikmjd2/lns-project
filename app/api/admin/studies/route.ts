@@ -20,6 +20,11 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "Slug already exists" }, { status: 409 });
   }
+  // Start from the first study's questions; they can be edited on the Questions page.
+  await db`
+    INSERT INTO questions (study_id, position, kind, scope, prompt, scale_min, scale_max, low_label, high_label, required)
+    SELECT (SELECT id FROM studies WHERE slug = ${slug}), position, kind, scope, prompt, scale_min, scale_max, low_label, high_label, required
+    FROM questions WHERE study_id = (SELECT MIN(id) FROM studies WHERE slug <> ${slug})`;
   return NextResponse.json({ ok: true });
 }
 

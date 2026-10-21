@@ -4,8 +4,8 @@ export const en = {
   welcomeTitle: "Help us understand how voices are heard",
   welcomeLead:
     "You will listen to a few short voice clips and tell us your impressions of each speaker. There are no right or wrong answers. We just want your honest first impressions.",
-  welcomeFacts: (n: number) => [
-    `About ${Math.max(4, Math.round(n * 1.6))} minutes, ${n} short clips`,
+  welcomeFacts: [
+    "About 5 to 10 minutes, a few short voice clips",
     "Anonymous. We never ask for your name or contact details",
     "Headphones help, but are not required",
     "You can stop at any time",
@@ -33,12 +33,13 @@ export const en = {
   play: "Play",
   pause: "Pause",
   replay: "Play again",
-  ratePrompt: "Based on this voice, how would you describe the speaker?",
-  scaleLow: "Not at all",
-  scaleHigh: "Very",
   next: "Next clip",
   finish: "Finish",
-  missing: "Please rate every line to continue",
+  optional: "(optional)",
+  textPlaceholder: "Type your answer here…",
+  finalTitle: "Almost done!",
+  finalLead: "A last few questions about the whole experience.",
+  missing: "Please answer every required question to continue",
   encouragement: [
     "Great start!",
     "You're doing wonderfully",

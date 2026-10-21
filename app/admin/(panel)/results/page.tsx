@@ -1,23 +1,30 @@
 import Link from "next/link";
 import { loadAdminCtx } from "@/lib/admin-ctx";
 import { getRatings } from "@/lib/admin-data";
-import { MEASURES, cells, tests, verdictH1, verdictH2, type GuiseTests, type Measure } from "@/lib/analysis";
+import { getQuestions } from "@/lib/db";
+import { cells, tests, verdictH1, verdictH2, type GuiseTests, type Measure } from "@/lib/analysis";
 import ResultsChart from "@/components/admin/ResultsChart";
 
 export const dynamic = "force-dynamic";
 
 const f2 = (x: number) => (Number.isFinite(x) ? x.toFixed(2) : "–");
 const pTxt = (p?: number) => (p == null ? "–" : p < 0.001 ? "<.001" : p.toFixed(3));
-const NICE: Record<string, string> = { composite: "Overall (mean of 5)", friendly: "Friendly", likable: "Likable", like_me: "Someone like me", educated: "Educated", confident: "Confident" };
 
 export default async function Results({ searchParams }: { searchParams: Promise<{ study?: string; m?: string }> }) {
   const sp = await searchParams;
   const ctx = await loadAdminCtx(sp.study);
   if (!ctx.ok) return <p>Set up the database on the Overview page first.</p>;
   const { study } = ctx;
-  const m: Measure = (MEASURES as string[]).includes(sp.m ?? "") ? (sp.m as Measure) : "composite";
+  const questions = await getQuestions(study.id);
+  const scaleQs = questions.filter((q) => q.kind === "scale" && q.scope === "clip");
+  const measures: { key: Measure; label: string; min: number; max: number }[] = [
+    { key: "composite", label: "Overall (mean, rescaled 1–5)", min: 1, max: 5 },
+    ...scaleQs.map((q) => ({ key: String(q.id), label: q.prompt, min: q.scale_min, max: q.scale_max })),
+  ];
+  const cur = measures.find((x) => x.key === sp.m) ?? measures[0];
+  const m: Measure = cur.key;
   // Only listeners who identified as male or female enter the gender comparison.
-  const rows = (await getRatings(study.id)).filter((r) => r.listener_gender === "male" || r.listener_gender === "female");
+  const rows = (await getRatings(study.id, questions)).filter((r) => r.listener_gender === "male" || r.listener_gender === "female");
   const nListeners = new Set(rows.map((r) => r.participant_id)).size;
   const nMale = new Set(rows.filter((r) => r.listener_gender === "male").map((r) => r.participant_id)).size;
   const c = cells(rows, m);
@@ -37,20 +44,20 @@ export default async function Results({ searchParams }: { searchParams: Promise<
         <h1 className="text-2xl font-semibold">Results · {study.name}</h1>
         <p className="mt-1 text-sm text-muted">{nListeners} completed male/female listeners ({nMale} male, {nListeners - nMale} female). Ratings from “other / prefer not to say” are excluded here but kept in the CSV.</p>
         <div className="mt-3 flex flex-wrap gap-1">
-          {MEASURES.map((k) => (
-            <Link key={k} href={`/admin/results?study=${study.slug}&m=${k}`}
-              className={`rounded-lg px-3 py-1.5 text-sm ${k === m ? "bg-brand text-brand-ink" : "border border-line bg-card hover:bg-brand-soft"}`}>{NICE[k]}</Link>
+          {measures.map((x) => (
+            <Link key={x.key} href={`/admin/results?study=${study.slug}&m=${x.key}`}
+              className={`rounded-lg px-3 py-1.5 text-sm ${x.key === m ? "bg-brand text-brand-ink" : "border border-line bg-card hover:bg-brand-soft"}`}>{x.label}</Link>
           ))}
         </div>
       </div>
 
       <section className="grid gap-4 lg:grid-cols-2">
-        <ResultsChart title="Code-mixed clips (1–5)" data={chartData("mixed")} />
-        <ResultsChart title="Pure-language baseline clips (1–5)" data={chartData("pure")} />
+        <ResultsChart title={`Code-mixed clips (${cur.min}–${cur.max})`} min={cur.min} max={cur.max} data={chartData("mixed")} />
+        <ResultsChart title={`Pure-language baseline clips (${cur.min}–${cur.max})`} min={cur.min} max={cur.max} data={chartData("pure")} />
       </section>
 
       <section className="overflow-x-auto rounded-2xl border border-line bg-card p-5">
-        <h2 className="mb-2 font-semibold">Mean ratings: {NICE[m]}</h2>
+        <h2 className="mb-2 font-semibold">Mean ratings: {cur.label}</h2>
         <table className="w-full min-w-[520px] text-sm">
           <thead className="text-left text-muted"><tr><th className="py-1">Style</th><th>Speaker</th><th>Listener</th><th>Mean</th><th>SD</th><th>n ratings</th></tr></thead>
           <tbody>
