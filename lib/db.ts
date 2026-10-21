@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import { ensureSchema } from "./migrate";
 
 export function sql() {
   const url = process.env.DATABASE_URL;
@@ -40,6 +41,7 @@ export function appliesToClip(q: { scope: string; clip_ids: number[] | null }, c
 }
 
 export async function getStudy(slug: string): Promise<Study | null> {
+  await ensureSchema();
   const rows = (await sql()`SELECT * FROM studies WHERE slug = ${slug}`) as Study[];
   return rows[0] ?? null;
 }
