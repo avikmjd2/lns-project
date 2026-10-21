@@ -25,7 +25,7 @@ export default function ResultsChart({ title, data, min, max }: { title: string;
                 return [`${typeof v === "number" ? v.toFixed(2) : "–"} (n=${n})`, name];
               }}
             />
-            <Legend iconType="circle" />
+            <Legend iconType="circle" formatter={(v) => <span style={{ color: "var(--foreground)" }}>{v}</span>} />
             <Bar dataKey="male" name="Male listeners" fill={COLORS.male} radius={[4, 4, 0, 0]} maxBarSize={44} />
             <Bar dataKey="female" name="Female listeners" fill={COLORS.female} radius={[4, 4, 0, 0]} maxBarSize={44} />
           </BarChart>

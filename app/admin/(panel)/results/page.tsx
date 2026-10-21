@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { BarChart3, CheckCircle2, CircleDashed, CircleDot, CircleX } from "lucide-react";
 import { loadAdminCtx } from "@/lib/admin-ctx";
 import { getRatings } from "@/lib/admin-data";
 import { getQuestions } from "@/lib/db";
 import { cells, tests, verdictH1, verdictH2, type GuiseTests, type Measure } from "@/lib/analysis";
 import ResultsChart from "@/components/admin/ResultsChart";
+import { Badge, PageHeader, Panel, TableShell, td, th } from "@/components/admin/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +20,7 @@ export default async function Results({ searchParams }: { searchParams: Promise<
   const questions = await getQuestions(study.id);
   const scaleQs = questions.filter((q) => q.kind === "scale" && q.scope === "clip");
   const measures: { key: Measure; label: string; min: number; max: number }[] = [
-    { key: "composite", label: "Overall (mean, rescaled 1–5)", min: 1, max: 5 },
+    { key: "composite", label: "Overall", min: 1, max: 5 },
     ...scaleQs.map((q) => ({ key: String(q.id), label: q.prompt, min: q.scale_min, max: q.scale_max })),
   ];
   const cur = measures.find((x) => x.key === sp.m) ?? measures[0];
@@ -39,88 +41,119 @@ export default async function Results({ searchParams }: { searchParams: Promise<
     });
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold">Results · {study.name}</h1>
-        <p className="mt-1 text-sm text-muted">{nListeners} completed male/female listeners ({nMale} male, {nListeners - nMale} female). Ratings from “other / prefer not to say” are excluded here but kept in the CSV.</p>
-        <div className="mt-3 flex flex-wrap gap-1">
-          {measures.map((x) => (
-            <Link key={x.key} href={`/admin/results?study=${study.slug}&m=${x.key}`}
-              className={`rounded-lg px-3 py-1.5 text-sm ${x.key === m ? "bg-brand text-brand-ink" : "border border-line bg-card hover:bg-brand-soft"}`}>{x.label}</Link>
-          ))}
-        </div>
+    <div className="space-y-6">
+      <PageHeader title="Results"
+        subtitle={<>{nListeners} completed listeners ({nMale} male, {nListeners - nMale} female). Listeners who chose “other / prefer not to say” are left out here but kept in the CSV.</>} />
+
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Measure">
+        {measures.map((x) => (
+          <Link key={x.key} href={`/admin/results?study=${study.slug}&m=${x.key}`}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${x.key === m ? "bg-brand text-brand-ink shadow-sm" : "border border-line bg-card text-muted hover:border-brand/50 hover:text-foreground"}`}>{x.label}</Link>
+        ))}
       </div>
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <ResultsChart title={`Code-mixed clips (${cur.min}–${cur.max})`} min={cur.min} max={cur.max} data={chartData("mixed")} />
-        <ResultsChart title={`Pure-language baseline clips (${cur.min}–${cur.max})`} min={cur.min} max={cur.max} data={chartData("pure")} />
-      </section>
+      {nListeners === 0 ? (
+        <Panel>
+          <div className="grid place-items-center gap-3 py-10 text-center">
+            <span className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-soft text-brand"><BarChart3 /></span>
+            <p className="font-semibold">No completed responses yet</p>
+            <p className="max-w-md text-sm text-muted">Charts and tests appear here once participants finish the survey. Only scale questions are analysed.</p>
+          </div>
+        </Panel>
+      ) : (
+        <>
+          <section className="grid gap-4 lg:grid-cols-2">
+            <ResultsChart title={`Code-mixed clips (${cur.min}–${cur.max})`} min={cur.min} max={cur.max} data={chartData("mixed")} />
+            <ResultsChart title={`Pure-language baseline (${cur.min}–${cur.max})`} min={cur.min} max={cur.max} data={chartData("pure")} />
+          </section>
 
-      <section className="overflow-x-auto rounded-2xl border border-line bg-card p-5">
-        <h2 className="mb-2 font-semibold">Mean ratings: {cur.label}</h2>
-        <table className="w-full min-w-[520px] text-sm">
-          <thead className="text-left text-muted"><tr><th className="py-1">Style</th><th>Speaker</th><th>Listener</th><th>Mean</th><th>SD</th><th>n ratings</th></tr></thead>
-          <tbody>
-            {c.map((x, i) => (
-              <tr key={i} className="border-t border-line"><td className="py-1.5">{x.guise === "mixed" ? "Code-mixed" : "Pure"}</td><td>{x.speaker}</td><td>{x.listener}</td><td>{f2(x.mean)}</td><td>{f2(x.sd)}</td><td>{x.n}</td></tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+          <section className="grid gap-4 md:grid-cols-2">
+            <Verdict h="H1 · Same-gender preference" r={h1} />
+            <Verdict h="H2 · Double standard" r={h2} />
+          </section>
+          <p className="text-sm text-muted">
+            Baseline check: in pure-language clips the male-listener gap is {f2(pure.maleListeners.mean)} and the female-listener gap is {f2(pure.femaleListeners.mean)}.
+            If these look like the code-mixed gaps, the effect may come from the voices rather than the code-mixing. Verdicts are automatic suggestions from the code-mixed clips; with small samples, read them together with the numbers.
+          </p>
 
-      <section className="space-y-4">
-        <h2 className="font-semibold">Tests (code-mixed clips first, then baseline)</h2>
-        <TestBlock title="Code-mixed" g={mixed} />
-        <TestBlock title="Pure-language baseline" g={pure} />
-        <p className="text-xs text-muted">
-          Method: for each listener, rating of the male speaker minus rating of the female speaker in that style (positive = male speaker rated higher).
-          “Within group” is a one-sample t-test of those differences against 0; the group comparison is Welch’s t-test of male-listener vs female-listener differences
-          (this is the speaker gender × listener gender interaction). Two-sided p-values.
-        </p>
-      </section>
+          <Panel title={`Mean ratings · ${cur.label}`}>
+            <TableShell>
+              <table className="w-full min-w-[520px] text-sm">
+                <thead className="border-b border-line"><tr><th className={th}>Style</th><th className={th}>Speaker</th><th className={th}>Listener</th><th className={th}>Mean</th><th className={th}>SD</th><th className={th}>n</th></tr></thead>
+                <tbody>
+                  {c.map((x, i) => (
+                    <tr key={i} className="border-b border-line last:border-0">
+                      <td className={td}><Badge tone={x.guise === "mixed" ? "brand" : "accent"}>{x.guise === "mixed" ? "Code-mixed" : "Pure"}</Badge></td>
+                      <td className={`${td} capitalize`}>{x.speaker}</td><td className={`${td} capitalize`}>{x.listener}</td>
+                      <td className={`${td} font-semibold tabular-nums`}>{f2(x.mean)}</td><td className={`${td} tabular-nums`}>{f2(x.sd)}</td><td className={`${td} tabular-nums`}>{x.n}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableShell>
+          </Panel>
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <Verdict h="H1 · Same-gender preference" r={h1} note="Judged on code-mixed clips." />
-        <Verdict h="H2 · Double standard" r={h2} note="Judged on code-mixed clips." />
-      </section>
-      <p className="text-sm text-muted">
-        Baseline check: in pure-language clips, male-listener gap = {f2(pure.maleListeners.mean)}, female-listener gap = {f2(pure.femaleListeners.mean)}.
-        If these look like the code-mixed gaps, the effect may come from the voices rather than the code-mixing.
-        Verdicts are automatic suggestions only; with small samples, read them together with the numbers.
-      </p>
+          <Panel title="Statistical tests" description="Code-mixed clips first, then the pure-language baseline.">
+            <div className="space-y-4">
+              <TestBlock title="Code-mixed" g={mixed} />
+              <TestBlock title="Pure-language baseline" g={pure} />
+            </div>
+            <p className="mt-4 text-xs leading-relaxed text-muted">
+              For each listener: rating of the male speaker minus rating of the female speaker in that style (positive = male speaker rated higher).
+              “Within” rows are one-sample t-tests of those gaps against 0. The last row compares male vs female listeners with Welch’s t-test, which is the speaker gender × listener gender interaction. Two-sided p-values.
+            </p>
+          </Panel>
+        </>
+      )}
     </div>
   );
 }
 
 function TestBlock({ title, g }: { title: string; g: GuiseTests }) {
-  const row = (label: string, x: GuiseTests["maleListeners"]) => (
-    <tr className="border-t border-line">
-      <td className="py-1.5">{label}</td><td>{x.d.length}</td><td>{f2(x.mean)}</td><td>{x.t ? f2(x.t.t) : "–"}</td><td>{x.t ? f2(x.t.df) : "–"}</td><td>{pTxt(x.t?.p)}</td>
+  const row = (name: string, x: GuiseTests["maleListeners"]) => (
+    <tr className="border-b border-line last:border-0">
+      <td className={td}>{name}</td><td className={`${td} tabular-nums`}>{x.d.length}</td><td className={`${td} tabular-nums`}>{f2(x.mean)}</td>
+      <td className={`${td} tabular-nums`}>{x.t ? f2(x.t.t) : "–"}</td><td className={`${td} tabular-nums`}>{x.t ? f2(x.t.df) : "–"}</td>
+      <td className={`${td} font-semibold tabular-nums ${x.t && x.t.p < 0.05 ? "text-brand" : ""}`}>{pTxt(x.t?.p)}</td>
     </tr>
   );
+  const i = g.interaction;
   return (
-    <div className="overflow-x-auto rounded-2xl border border-line bg-card p-5">
-      <h3 className="mb-2 font-medium">{title}</h3>
-      <table className="w-full min-w-[520px] text-sm">
-        <thead className="text-left text-muted"><tr><th className="py-1">Comparison (male − female speaker)</th><th>n</th><th>Mean gap</th><th>t</th><th>df</th><th>p</th></tr></thead>
-        <tbody>
-          {row("Male listeners (within)", g.maleListeners)}
-          {row("Female listeners (within)", g.femaleListeners)}
-          <tr className="border-t border-line"><td className="py-1.5">Male vs female listeners (interaction)</td><td>{g.interaction ? `${g.interaction.nA}/${g.interaction.nB}` : "–"}</td><td>{g.interaction ? f2(g.interaction.meanA - g.interaction.meanB) : "–"}</td><td>{g.interaction ? f2(g.interaction.t) : "–"}</td><td>{g.interaction ? f2(g.interaction.df) : "–"}</td><td>{pTxt(g.interaction?.p)}</td></tr>
-        </tbody>
-      </table>
+    <div>
+      <h3 className="mb-2 text-sm font-semibold">{title}</h3>
+      <TableShell>
+        <table className="w-full min-w-[520px] text-sm">
+          <thead className="border-b border-line"><tr><th className={th}>Comparison (male − female speaker)</th><th className={th}>n</th><th className={th}>Mean gap</th><th className={th}>t</th><th className={th}>df</th><th className={th}>p</th></tr></thead>
+          <tbody>
+            {row("Male listeners (within)", g.maleListeners)}
+            {row("Female listeners (within)", g.femaleListeners)}
+            <tr>
+              <td className={td}>Male vs female listeners</td><td className={`${td} tabular-nums`}>{i ? `${i.nA}/${i.nB}` : "–"}</td>
+              <td className={`${td} tabular-nums`}>{i ? f2(i.meanA - i.meanB) : "–"}</td><td className={`${td} tabular-nums`}>{i ? f2(i.t) : "–"}</td><td className={`${td} tabular-nums`}>{i ? f2(i.df) : "–"}</td>
+              <td className={`${td} font-semibold tabular-nums ${i && i.p < 0.05 ? "text-brand" : ""}`}>{pTxt(i?.p)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </TableShell>
     </div>
   );
 }
 
-function Verdict({ h, r, note }: { h: string; r: { v: string; why: string }; note: string }) {
-  const icon = r.v === "supported" ? "✓" : r.v === "partly supported" ? "◐" : r.v === "not supported" ? "✕" : "…";
+function Verdict({ h, r }: { h: string; r: { v: string; why: string } }) {
+  const map: Record<string, { Icon: typeof CheckCircle2; cls: string }> = {
+    supported: { Icon: CheckCircle2, cls: "bg-brand-soft text-brand" },
+    "partly supported": { Icon: CircleDot, cls: "bg-accent-soft text-accent" },
+    "not supported": { Icon: CircleX, cls: "bg-card2 text-muted" },
+  };
+  const { Icon, cls } = map[r.v] ?? { Icon: CircleDashed, cls: "bg-card2 text-muted" };
   return (
-    <div className="rounded-2xl border border-line bg-card p-5">
-      <p className="text-sm text-muted">{h}</p>
-      <p className="mt-1 text-xl font-semibold"><span aria-hidden>{icon}</span> {r.v}</p>
-      <p className="mt-2 text-sm">{r.why}</p>
-      <p className="mt-1 text-xs text-muted">{note}</p>
+    <div className="surface flex gap-4 rounded-2xl p-5">
+      <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl ${cls}`}><Icon size={24} /></span>
+      <div>
+        <p className="text-sm text-muted">{h}</p>
+        <p className="font-display text-xl font-semibold capitalize">{r.v}</p>
+        <p className="mt-1 text-sm leading-relaxed text-muted">{r.why}</p>
+      </div>
     </div>
   );
 }

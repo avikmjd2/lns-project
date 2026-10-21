@@ -1,6 +1,8 @@
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { loadAdminCtx } from "@/lib/admin-ctx";
 import { sql } from "@/lib/db";
 import { ClipActions, UploadForm } from "@/components/admin/bits";
+import { Badge, PageHeader, Panel } from "@/components/admin/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -14,54 +16,66 @@ export default async function Recordings({ searchParams }: { searchParams: Promi
   // A form is "complete" when it has 1 male + 1 female code-mixed and 1 male + 1 female pure clip.
   const check = (f: "form_a" | "form_b") => {
     const inForm = clips.filter((c) => c[f]);
-    const has = (g: string, gu: string) => inForm.filter((c) => c.speaker_gender === g && c.guise === gu).length;
     const issues: string[] = [];
     for (const g of ["male", "female"]) for (const gu of ["mixed", "pure"]) {
-      const n = has(g, gu);
+      const n = inForm.filter((c) => c.speaker_gender === g && c.guise === gu).length;
       if (n !== 1) issues.push(`${n} ${g} ${gu === "mixed" ? "code-mixed" : "pure"} (need 1)`);
     }
-    // Each speaker must appear in only one guise per form.
     const seen = new Map<string, number>();
     inForm.forEach((c) => seen.set(c.speaker_id, (seen.get(c.speaker_id) ?? 0) + 1));
     seen.forEach((n, id) => n > 1 && issues.push(`speaker ${id} appears ${n} times`));
     return issues;
   };
-  const a = check("form_a"), b = check("form_b");
+
+  const bySpeaker = new Map<string, Clip[]>();
+  for (const c of clips) (bySpeaker.get(c.speaker_id) ?? bySpeaker.set(c.speaker_id, []).get(c.speaker_id)!).push(c);
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Recordings · {ctx.study.name}</h1>
-      <section className="rounded-2xl border border-line bg-card p-5">
-        <h2 className="mb-1 font-semibold">Form checklist</h2>
-        <p className="mb-3 text-sm text-muted">Each form needs one male + one female code-mixed clip and one male + one female pure clip, with each speaker in a single guise. Typical: Form A = M1 mixed, M2 pure, F1 mixed, F2 pure; Form B = the reverse.</p>
-        {([["A", a], ["B", b]] as const).map(([name, issues]) => (
-          <p key={name} className="text-sm">
-            <b>Form {name}:</b> {issues.length === 0 ? <span className="text-brand">✓ complete</span> : <span className="text-accent">{issues.join("; ")}</span>}
-          </p>
+      <PageHeader title="Recordings" subtitle="Upload the clips and choose which form each one belongs to. Participants never see speaker ID, gender or style, and files get random names." />
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {([["A", check("form_a")], ["B", check("form_b")]] as const).map(([name, issues]) => (
+          <div key={name} className={`surface flex gap-4 rounded-2xl p-5 ${issues.length ? "" : "border-brand/40"}`}>
+            <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${issues.length ? "bg-accent-soft text-accent" : "bg-brand-soft text-brand"}`}>
+              {issues.length ? <AlertTriangle size={20} /> : <CheckCircle2 size={20} />}
+            </span>
+            <div>
+              <p className="font-semibold">Form {name} {issues.length === 0 && <span className="font-normal text-brand">is complete</span>}</p>
+              <p className="mt-0.5 text-sm text-muted">{issues.length === 0 ? "1 male + 1 female code-mixed, 1 male + 1 female pure." : issues.join(" · ")}</p>
+            </div>
+          </div>
         ))}
-      </section>
-      <section className="rounded-2xl border border-line bg-card p-5">
-        <h2 className="mb-3 font-semibold">Upload a clip</h2>
-        <UploadForm studyId={ctx.study.id} />
-        <p className="mt-3 text-xs text-muted">Participants never see speaker ID, gender or style. Files get random names.</p>
-      </section>
-      <section className="overflow-x-auto rounded-2xl border border-line bg-card">
-        <table className="w-full min-w-[640px] text-left text-sm">
-          <thead className="border-b border-line text-muted"><tr><th className="p-3">Speaker</th><th>Gender</th><th>Style</th><th>Preview</th><th>Forms</th></tr></thead>
-          <tbody>
-            {clips.length === 0 && <tr><td className="p-4 text-muted" colSpan={5}>No clips yet.</td></tr>}
-            {clips.map((c) => (
-              <tr key={c.id} className="border-b border-line last:border-0">
-                <td className="p-3 font-medium">{c.speaker_id}</td>
-                <td>{c.speaker_gender}</td>
-                <td>{c.guise === "mixed" ? "Code-mixed" : "Pure"}</td>
-                <td><audio controls preload="none" src={c.blob_url} className="h-9 w-48" /></td>
-                <td><ClipActions id={c.id} formA={c.form_a} formB={c.form_b} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+      </div>
+      <p className="-mt-2 text-sm text-muted">Each form needs one male and one female code-mixed clip plus one male and one female pure clip, with each speaker in one style only. Typical: Form A = M1 mixed, M2 pure, F1 mixed, F2 pure; Form B = the reverse.</p>
+
+      <Panel title="Upload a clip"><UploadForm studyId={ctx.study.id} /></Panel>
+
+      <div>
+        <h2 className="mb-3 text-base font-semibold">Uploaded clips <span className="font-normal text-muted">({clips.length})</span></h2>
+        {clips.length === 0 && <div className="surface rounded-2xl p-8 text-center text-sm text-muted">No clips yet. Upload your first recording above.</div>}
+        <div className="grid gap-4 lg:grid-cols-2">
+          {[...bySpeaker].map(([speaker, list]) => (
+            <section key={speaker} className="surface rounded-2xl p-4 sm:p-5">
+              <div className="mb-3 flex items-center gap-2">
+                <h3 className="font-display text-lg font-semibold">Speaker {speaker}</h3>
+                <Badge tone="muted">{list[0].speaker_gender}</Badge>
+              </div>
+              <ul className="space-y-3">
+                {list.map((c) => (
+                  <li key={c.id} className="rounded-xl bg-card2 p-3">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <Badge tone={c.guise === "mixed" ? "brand" : "accent"}>{c.guise === "mixed" ? "Code-mixed" : "Pure"}</Badge>
+                      <ClipActions id={c.id} formA={c.form_a} formB={c.form_b} />
+                    </div>
+                    <audio controls preload="none" src={c.blob_url} className="h-10 w-full" />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
