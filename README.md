@@ -1,36 +1,23 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Voices & Speaking Styles: matched-guise survey
 
-## Getting Started
+Participant form at `/s/hindi` (`/` redirects there). Admin panel at `/admin`.
+Built to host more studies later (e.g. Bangla): create one from **Admin > Overview**, then upload its clips.
 
-First, run the development server:
+## Deploy on Vercel (free tier)
+1. Push this folder to GitHub and import it in Vercel (or run `npx vercel`).
+2. In the project's **Storage** tab, add **Neon Postgres** and **Blob**. This sets `DATABASE_URL` and `BLOB_READ_WRITE_TOKEN`.
+3. In **Settings > Environment Variables** add `ADMIN_PASSWORD` and `SESSION_SECRET` (random string, e.g. `openssl rand -hex 32`). Redeploy.
+4. Open `/admin`, log in, click **Set up database** (creates tables and the default `hindi` study).
+5. **Recordings**: upload the 8 clips. Form A = M1 mixed, M2 pure, F1 mixed, F2 pure. Form B = the opposite guises.
+   The checklist turns green when both forms are complete.
+6. **Overview**: set the study status to **open**, then share `https://<your-site>/s/hindi`.
+7. Before real collection, test the form yourself, then **Responses > Clear all test data**.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Local dev
+`cp .env.example .env.local`, fill it in (`vercel env pull .env.local` works after linking), then `npm run dev`.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Notes
+- Listener form is auto-assigned per listener gender so Form A/B stay balanced; clip order is shuffled.
+- Ratings unlock after 80% of a clip has been played. Progress is saved after every clip and resumes on refresh.
+- Results page: cell means, bar charts, paired/Welch t-tests and suggested verdicts for H1/H2. CSV export is one row per rating.
+- All participant text is in `locales/en.ts`; add `locales/bn.ts` and register it in `locales/index.ts` for a Bangla UI.
