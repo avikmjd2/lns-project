@@ -215,7 +215,18 @@ export function UploadForm({ studyId }: { studyId: number }) {
         const blob = await upload(`clips/${rand}.${ext}`, file, { access: "public", handleUploadUrl: "/api/admin/upload", contentType: file.type || undefined });
         await call("POST", "/api/admin/clips", { studyId, url: blob.url, label: `S${rand.slice(0, 4)}`, ...f });
         setFile(null); setF({ ...f, speakerId: "" }); router.refresh();
-      } catch (x) { setErr((x as Error).message); }
+      } catch (x) {
+        let msg = (x as Error).message;
+        // The Blob client hides the server's reason; ask the endpoint directly for it.
+        if (/client token/i.test(msg)) {
+          try {
+            const r = await fetch("/api/admin/upload", { method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ type: "blob.generate-client-token", payload: { pathname: "clips/diagnostic.mp3", clientPayload: null, multipart: false } }) });
+            if (!r.ok) msg = (await r.json().catch(() => ({}))).error || msg;
+          } catch {}
+        }
+        setErr(msg);
+      }
       setBusy(false);
     }}>
       <label className={`flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed px-4 py-8 text-center transition ${file ? "border-brand bg-brand-soft" : "border-line hover:border-brand/60 hover:bg-card2"}`}>

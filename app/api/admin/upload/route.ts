@@ -7,6 +7,10 @@ import { isAdmin } from "@/lib/auth";
 export async function POST(req: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = (await req.json()) as HandleUploadBody;
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    console.error("upload: BLOB_READ_WRITE_TOKEN is not set");
+    return NextResponse.json({ error: "Blob storage is not connected: BLOB_READ_WRITE_TOKEN is missing. In Vercel open Storage, create or connect a Blob store to this project, then redeploy." }, { status: 400 });
+  }
   try {
     const json = await handleUpload({
       body, request: req,
@@ -19,6 +23,7 @@ export async function POST(req: Request) {
     });
     return NextResponse.json(json);
   } catch (e) {
+    console.error("upload token error:", e);
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });
   }
 }
