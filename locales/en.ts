@@ -3,9 +3,9 @@
 export const en = {
   welcomeTitle: "Help us understand how voices are heard",
   welcomeLead:
-    "You will listen to a few short voice clips and tell us your impressions of each speaker. There are no right or wrong answers. We just want your honest first impressions.",
+    "You will listen to 4 short clips of different speakers explaining how to make their favourite dish, and tell us your impressions of each speaker. There are no right or wrong answers. We just want your honest first impressions.",
   welcomeFacts: [
-    "About 5 to 10 minutes, a few short voice clips",
+    "About 5 minutes, 4 short voice clips",
     "Anonymous. We never ask for your name or contact details",
     "Headphones help, but are not required",
     "You can stop at any time",
@@ -28,7 +28,7 @@ export const en = {
   clipOf: (i: number, n: number) => `Clip ${i} of ${n}`,
   listenPrompt: "Press play and listen to the whole clip. The questions unlock when you are done",
   listenDone: "Thanks for listening! Ready for a few quick questions?",
-  audioError: "The clip couldn't load. Check your connection and press play to try again.",
+  audioError: "The clip couldn't load. Check your connection and press play to try again, or just continue to the questions without it.",
   listenTitle: "Listen to this speaker",
   toQuestions: "Continue to questions",
   questionOf: (i: number, n: number) => `Question ${i} of ${n}`,

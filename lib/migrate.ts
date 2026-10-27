@@ -1,5 +1,6 @@
 import { sql } from "./db";
-import { SCHEMA } from "./schema";
+import { SCHEMA, UPGRADES } from "./schema";
+import { applyStudyQuestions } from "./default-questions";
 
 let ready: Promise<void> | null = null;
 
@@ -10,13 +11,20 @@ async function run() {
       to_regclass('public.studies') IS NOT NULL AS studies,
       to_regclass('public.questions') IS NOT NULL AS questions,
       EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'questions' AND column_name = 'clip_ids') AS clip_ids,
-      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ratings' AND column_name = 'friendly') AS old_ratings
-  `) as { studies: boolean; questions: boolean; clip_ids: boolean; old_ratings: boolean }[];
+      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ratings' AND column_name = 'friendly') AS old_ratings,
+      EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'participants_form_abcd') AS combos
+  `) as { studies: boolean; questions: boolean; clip_ids: boolean; old_ratings: boolean; combos: boolean }[];
   // The statements are idempotent; only run them when something is missing or outdated so that
   // the default questions are seeded once and not re-created after an admin deletes them.
   if (!s.studies || !s.questions || !s.clip_ids || s.old_ratings) {
     for (const stmt of SCHEMA) await db.query(stmt);
   }
+  // Allow clip combinations A-D on participants.form (the first schema only allowed A and B).
+  if (!s.combos) {
+    for (const stmt of UPGRADES) await db.query(stmt);
+  }
+  // Swap the untouched original default questions for the five study questions (no-op otherwise).
+  await applyStudyQuestions();
 }
 
 /** Creates or upgrades the database tables on first use (once per server instance). */

@@ -273,6 +273,23 @@ export function ClipActions({ id, formA, formB }: { id: number; formA: boolean; 
   );
 }
 
+export function SyncButton({ studyId }: { studyId: number }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  return (
+    <div className="flex items-center gap-3">
+      <button className={btn} disabled={busy} onClick={async () => {
+        setBusy(true); setMsg("");
+        try { await call("POST", "/api/admin/sync-recordings", { studyId }); setMsg("Synced."); router.refresh(); }
+        catch (e) { setMsg((e as Error).message); }
+        setBusy(false);
+      }}><AudioLines size={16} /> {busy ? "Syncing..." : "Sync recordings"}</button>
+      {msg && <span className="text-sm text-muted">{msg}</span>}
+    </div>
+  );
+}
+
 export function DeleteParticipant({ id, studyId, all }: { id?: string; studyId?: number; all?: boolean }) {
   const router = useRouter();
   return (

@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { sql, getStudy } from "@/lib/db";
-import { pickForm, shuffle } from "@/lib/assign";
+import { COMBOS, buildAssignment, pickCombo, shuffle, type Combo } from "@/lib/assign";
+import { syncClips } from "@/lib/recordings";
 
 export const dynamic = "force-dynamic";
 
-type ClipRow = { id: number; blob_url: string };
+type ClipRow = { id: number; label: string };
 
-// Create a participant, assign a form (balanced within listener gender), return shuffled clips.
+// Create a participant, assign one of 4 clip combinations (balanced within listener gender), return shuffled clips.
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const slug = String(body?.slug ?? "");
@@ -25,23 +26,27 @@ export async function POST(req: Request) {
     WHERE study_id = ${study.id} AND listener_gender = ${gender}
       AND (completed_at IS NOT NULL OR started_at > now() - interval '30 minutes')
     GROUP BY form`) as { form: string; n: number }[];
-  const nA = counts.find((c) => c.form === "A")?.n ?? 0;
-  const nB = counts.find((c) => c.form === "B")?.n ?? 0;
-  const form = pickForm(nA, nB);
+  const tally = Object.fromEntries(COMBOS.map((c) => [c, counts.find((x) => x.form === c)?.n ?? 0])) as Record<Combo, number>;
+  const combo = pickCombo(tally);
+  const labels = buildAssignment(combo);
 
-  const clips = (form === "A"
-    ? await db`SELECT id, blob_url FROM clips WHERE study_id = ${study.id} AND form_a`
-    : await db`SELECT id, blob_url FROM clips WHERE study_id = ${study.id} AND form_b`) as ClipRow[];
-  if (clips.length === 0) return NextResponse.json({ error: "no_clips" }, { status: 409 });
+  // Register the 8 local recordings the first time (or whenever some are missing).
+  const [reg] = (await db`SELECT COUNT(*)::int AS n FROM clips WHERE study_id = ${study.id} AND blob_url NOT LIKE 'http%'`) as { n: number }[];
+  if (reg.n < 8) await syncClips(study.id);
+
+  const clips = (await db`
+    SELECT id, label FROM clips
+    WHERE study_id = ${study.id} AND blob_url NOT LIKE 'http%' AND label = ANY(${labels}::text[])`) as ClipRow[];
+  if (clips.length !== 4) return NextResponse.json({ error: "no_clips" }, { status: 409 });
 
   const ordered = shuffle(clips);
   const inserted = (await db`
     INSERT INTO participants (study_id, listener_gender, age, form, clip_order)
-    VALUES (${study.id}, ${gender}, ${age}, ${form}, ${JSON.stringify(ordered.map((c) => c.id))}::jsonb)
+    VALUES (${study.id}, ${gender}, ${age}, ${combo}, ${JSON.stringify(ordered.map((c) => c.id))}::jsonb)
     RETURNING id`) as { id: string }[];
   return NextResponse.json({
     participantId: inserted[0].id,
-    clips: ordered.map((c) => ({ id: c.id, url: c.blob_url })),
+    clips: ordered.map((c) => ({ id: c.id, url: `/api/audio/${c.id}` })),
     done: [],
   });
 }
@@ -55,13 +60,13 @@ export async function GET(req: Request) {
     study_id: number; clip_order: number[]; completed_at: string | null;
   }[];
   if (!p[0]) return NextResponse.json({ error: "not found" }, { status: 404 });
-  const clips = (await db`SELECT id, blob_url FROM clips WHERE id = ANY(${p[0].clip_order}::int[])`) as ClipRow[];
+  const clips = (await db`SELECT id, label FROM clips WHERE id = ANY(${p[0].clip_order}::int[])`) as ClipRow[];
   const byId = new Map(clips.map((c) => [c.id, c]));
   const done = (await db`SELECT clip_id FROM ratings WHERE participant_id = ${id}`) as { clip_id: number }[];
   return NextResponse.json({
     participantId: id,
     completed: !!p[0].completed_at,
-    clips: p[0].clip_order.filter((cid) => byId.has(cid)).map((cid) => ({ id: cid, url: byId.get(cid)!.blob_url })),
+    clips: p[0].clip_order.filter((cid) => byId.has(cid)).map((cid) => ({ id: cid, url: `/api/audio/${cid}` })),
     done: done.map((d) => d.clip_id),
   });
 }

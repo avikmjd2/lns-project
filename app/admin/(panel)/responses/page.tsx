@@ -35,14 +35,14 @@ export default async function Responses({ searchParams }: { searchParams: Promis
       <PageHeader title="Responses" subtitle={`${rows.filter((r) => r.completed_at).length} completed of ${rows.length} started`}
         actions={<><DeleteParticipant all studyId={study.id} /><a className={btn} href={`/api/admin/export?study=${study.slug}`}><Download size={15} /> Download CSV</a></>} />
 
-      <Panel title="Balance check" description="Completed participants by listener gender and form. Aim for even numbers.">
+      <Panel title="Balance check" description="Completed participants by listener gender and clip combination (A to D). Aim for even numbers.">
         <TableShell>
           <table className="w-full text-sm">
-            <thead className="border-b border-line"><tr><th className={th}>Listener gender</th><th className={th}>Form A</th><th className={th}>Form B</th><th className={th}>Total</th></tr></thead>
+            <thead className="border-b border-line"><tr><th className={th}>Listener gender</th><th className={th}>A</th><th className={th}>B</th><th className={th}>C</th><th className={th}>D</th><th className={th}>Total</th></tr></thead>
             <tbody>
               {genders.map(([g, name]) => (
                 <tr key={g} className="border-b border-line last:border-0">
-                  <td className={`${td} font-medium`}>{name}</td><td className={`${td} tabular-nums`}>{cell(g, "A")}</td><td className={`${td} tabular-nums`}>{cell(g, "B")}</td><td className={`${td} font-semibold tabular-nums`}>{cell(g, "A") + cell(g, "B")}</td>
+                  <td className={`${td} font-medium`}>{name}</td>{["A", "B", "C", "D"].map((f) => <td key={f} className={`${td} tabular-nums`}>{cell(g, f)}</td>)}<td className={`${td} font-semibold tabular-nums`}>{["A", "B", "C", "D"].reduce((t, f) => t + cell(g, f), 0)}</td>
                 </tr>
               ))}
             </tbody>

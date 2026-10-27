@@ -275,7 +275,7 @@ function ClipStep(props: {
   const [err, setErr] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const unlocked = maxPct >= 80;
+  const unlocked = maxPct >= 80 || audioFailed;
   const nq = questions.length;
   const { onProgress } = props;
   const curAnswered = answered(questions[qi], answers);

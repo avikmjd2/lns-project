@@ -88,3 +88,14 @@ export const SCHEMA: string[] = [
    CROSS JOIN (VALUES (1,'Friendly'),(2,'Likable'),(3,'Someone like me'),(4,'Educated'),(5,'Confident')) AS v(pos, prompt)
    WHERE NOT EXISTS (SELECT 1 FROM questions q WHERE q.study_id = s.id) AND s.slug = 'hindi'`,
 ];
+
+// Runs after SCHEMA whenever the 4-combination constraint is missing.
+// The first schema only allowed form A or B; clip combinations are now A, B, C or D.
+export const UPGRADES: string[] = [
+  `ALTER TABLE participants DROP CONSTRAINT IF EXISTS participants_form_check`,
+  `DO $$ BEGIN
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'participants_form_abcd') THEN
+       ALTER TABLE participants ADD CONSTRAINT participants_form_abcd CHECK (form IN ('A','B','C','D'));
+     END IF;
+   END $$`,
+];
