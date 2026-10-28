@@ -91,6 +91,8 @@ export const SCHEMA: string[] = [
    END $$`,
   // Set once the similarity / naturalness / perceived-age / attitude / schooling questions have been added to a study.
   `ALTER TABLE studies ADD COLUMN IF NOT EXISTS research_questions_applied BOOLEAN NOT NULL DEFAULT false`,
+  // Set once the entertainingness and ambition questions have been removed from a study.
+  `ALTER TABLE studies ADD COLUMN IF NOT EXISTS trimmed_questions_applied BOOLEAN NOT NULL DEFAULT false`,
   // Add first_language to participants (upgrade).
   `ALTER TABLE participants ADD COLUMN IF NOT EXISTS first_language TEXT`,
   `CREATE INDEX IF NOT EXISTS answers_participant_idx ON answers (participant_id)`,

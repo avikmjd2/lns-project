@@ -26,15 +26,13 @@ export async function applyStudyQuestions(): Promise<void> {
       (4, 'scale', 'Rate this person on trustworthiness', 1, 10, 'Not at all', 'Extremely'),
       (5, 'scale', 'How likely would you be to talk to this person if he/she approached you?', 1, 10, 'Not at all likely', 'Very likely'),
       (6, 'scale', 'Rate this person on leadership', 1, 10, 'Not at all', 'Extremely'),
-      (7, 'scale', 'Rate this person on entertainingness', 1, 10, 'Not at all', 'Extremely'),
-      (8, 'scale', 'Rate this person on ambition', 1, 10, 'Not at all', 'Extremely'),
       (9, 'text',  'Any additional feedback about this speaker?', 1, 10, NULL, NULL)
     ) AS v(pos, kind, prompt, mn, mx, low, high)`;
 }
 
 /**
  * Additive migration: inserts questions that are missing from studies that were already upgraded
- * from the original 5 defaults but predate leadership / entertainingness / ambition / feedback.
+ * from the original 5 defaults but predate leadership / feedback.
  * Runs at most once per study (studies.defaults_applied), so questions the admin later deletes,
  * rewords or makes optional are never put back.
  */
@@ -55,8 +53,6 @@ export async function applyMissingQuestions(): Promise<void> {
   for (const { study_id } of studies) {
     const toAdd = [
       { pos: 6, kind: "scale", prompt: "Rate this person on leadership",             mn: 1, mx: 10, low: "Not at all", high: "Extremely", required: true  },
-      { pos: 7, kind: "scale", prompt: "Rate this person on entertainingness",        mn: 1, mx: 10, low: "Not at all", high: "Extremely", required: true  },
-      { pos: 8, kind: "scale", prompt: "Rate this person on ambition",                mn: 1, mx: 10, low: "Not at all", high: "Extremely", required: true  },
       { pos: 9, kind: "text",  prompt: "Any additional feedback about this speaker?", mn: 1, mx: 10, low: null,         high: null,        required: false },
     ];
     for (const q of toAdd) {
@@ -72,11 +68,7 @@ export async function applyMissingQuestions(): Promise<void> {
       UPDATE questions SET required = true
       WHERE study_id = ${study_id}
         AND kind = 'scale'
-        AND prompt IN (
-          'Rate this person on leadership',
-          'Rate this person on entertainingness',
-          'Rate this person on ambition'
-        )
+        AND prompt = 'Rate this person on leadership'
         AND required = false`;
   }
   // From now on this study's question list belongs to the admin: never touch it again.
@@ -113,4 +105,19 @@ export async function applyResearchQuestions(): Promise<void> {
     }
   }
   await db`UPDATE studies SET research_questions_applied = true WHERE NOT research_questions_applied`;
+}
+
+/**
+ * One-time trim (per study, tracked by studies.trimmed_questions_applied): removes the entertainingness and
+ * ambition questions to keep the survey short. Answers already given to them are deleted with them.
+ * Leadership is kept: it is observable from speech, while ambition is a motive and reads more noisily
+ * from a short clip. After this runs, the question list belongs to the admin again.
+ */
+export async function applyTrimmedQuestions(): Promise<void> {
+  const db = sql();
+  await db`
+    DELETE FROM questions q USING studies s
+    WHERE q.study_id = s.id AND NOT s.trimmed_questions_applied
+      AND q.prompt IN ('Rate this person on entertainingness', 'Rate this person on ambition')`;
+  await db`UPDATE studies SET trimmed_questions_applied = true WHERE NOT trimmed_questions_applied`;
 }
