@@ -33,17 +33,48 @@ export function Panel({ title, description, children, className = "", right }: {
   );
 }
 
-/** A row of big numerals separated by hairlines, like a ledger summary. */
-export function Stats({ items }: { items: { label: string; value: ReactNode }[] }) {
+/** Big numerals on a hairline grid, like a ledger summary. 2 columns on phones, one row on wide screens. */
+const COLS: Record<number, string> = { 3: "lg:grid-cols-3", 4: "lg:grid-cols-4", 5: "lg:grid-cols-5", 6: "lg:grid-cols-6" };
+export function Stats({ items }: { items: { label: string; value: ReactNode; hint?: string }[] }) {
   return (
-    <dl className="grid grid-cols-2 border-y border-ink md:grid-cols-4">
+    <dl className={`grid grid-cols-2 gap-px border-y border-ink bg-rule ${COLS[items.length] ?? "lg:grid-cols-4"}`}>
       {items.map((s, i) => (
-        <div key={s.label} className={`px-4 py-5 ${i > 0 ? "md:border-l border-rule" : "md:pl-0"} ${i % 2 === 1 ? "border-l border-rule md:border-l" : ""} ${i > 1 ? "border-t border-rule md:border-t-0" : ""}`}>
-          <dd className="numeral text-[2.6rem] leading-none tracking-[-0.03em]">{s.value}</dd>
-          <dt className="label mt-2">{s.label}</dt>
+        // <dt> (label) comes first in the markup, as lists require; flex order shows the number above it.
+        <div key={s.label} className={`flex flex-col bg-paper py-5 pr-4 ${i % 2 === 0 ? "pl-0 lg:pl-4" : "pl-4"} ${i === 0 ? "lg:pl-0" : ""}`}>
+          <dt className="label order-2 mt-2">{s.label}</dt>
+          <dd className="numeral order-1 text-[2.4rem] leading-none tracking-[-0.03em]">{s.value}</dd>
+          {s.hint && <dd className="order-3 mt-1 text-[0.85rem] leading-snug text-muted">{s.hint}</dd>}
         </div>
       ))}
     </dl>
+  );
+}
+
+/** One horizontal bar: label, a filled track and the count with its share. */
+export function BarRow({ label, value, max, total, tone = "ink", sub }: { label: string; value: number; max: number; total?: number; tone?: "ink" | "signal"; sub?: string }) {
+  const w = max > 0 ? Math.max(value > 0 ? 1.5 : 0, (value / max) * 100) : 0;
+  const pct = total ? Math.round((value / total) * 100) : null;
+  return (
+    <div className="grid grid-cols-[minmax(6.5rem,11rem)_1fr_auto] items-center gap-x-3 py-1.5 text-[0.98rem]">
+      <span className="truncate" title={label}>{label}{sub && <span className="label ml-2">{sub}</span>}</span>
+      <span className="h-[10px] bg-rule" aria-hidden><span className={`block h-full ${tone === "signal" ? "bg-signal" : "bg-ink"}`} style={{ width: `${w}%` }} /></span>
+      <span className="numeral min-w-[4.5rem] text-right text-[13px]">{value}{pct !== null && <span className="text-muted"> · {pct}%</span>}</span>
+    </div>
+  );
+}
+
+/** Tiny vertical histogram for a scale question: one column per answer value. */
+export function Histogram({ values, start }: { values: number[]; start: number }) {
+  const max = Math.max(1, ...values);
+  return (
+    <div className="flex h-16 items-end gap-[3px]" role="img" aria-label={`Answer counts from ${start} to ${start + values.length - 1}: ${values.join(", ")}`}>
+      {values.map((v, i) => (
+        <div key={i} className="flex h-full flex-1 flex-col justify-end" title={`${start + i}: ${v}`}>
+          <div className="bg-ink" style={{ height: `${(v / max) * 100}%`, minHeight: v ? 2 : 0 }} />
+          <span className="numeral mt-1 text-center text-[11px] leading-none text-muted" aria-hidden>{start + i}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
