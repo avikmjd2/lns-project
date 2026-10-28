@@ -1,6 +1,6 @@
 import { LoginForm } from "@/components/admin/bits";
 
-export const metadata = { title: "Admin login · Voices" };
+export const metadata = { title: "Admin login · Voices", robots: { index: false, follow: false } };
 
 export default function LoginPage() {
   return (

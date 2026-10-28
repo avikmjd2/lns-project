@@ -2,7 +2,7 @@ import { AdminShell } from "@/components/admin/bits";
 import { loadAdminCtx } from "@/lib/admin-ctx";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Admin · Voices" };
+export const metadata = { title: "Admin · Voices", robots: { index: false, follow: false } };
 
 export default async function PanelLayout({ children }: { children: React.ReactNode }) {
   const ctx = await loadAdminCtx();
