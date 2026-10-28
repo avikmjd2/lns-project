@@ -49,7 +49,7 @@ function ShellInner({ slugs, children }: { slugs: { slug: string; name: string }
   const q = study ? `?study=${study}` : "";
   const logout = async () => { await call("POST", "/api/admin/logout"); router.push("/admin/login"); };
   const switcher = slugs.length > 0 && (
-    <select value={study} onChange={(e) => router.push(`${path}?study=${e.target.value}`)} aria-label="Study" className="field !py-2 !text-[0.95rem]">
+    <select value={study} onChange={(e) => router.push(`${path}?study=${e.target.value}`)} aria-label="Study" className="field min-h-11 !py-2.5 !text-[1rem]">
       {slugs.map((s) => <option key={s.slug} value={s.slug}>{s.name} ({s.slug})</option>)}
     </select>
   );
@@ -88,7 +88,7 @@ function ShellInner({ slugs, children }: { slugs: { slug: string; name: string }
         <nav className="flex gap-5 overflow-x-auto px-4">
           {NAV.map(({ href, label: l }) => (
             <Link key={href} href={`${href}${q}`}
-              className={`shrink-0 border-b-2 pb-2 pt-1 text-[1rem] ${path === href ? "border-signal text-ink" : "border-transparent text-muted"}`}>{l}</Link>
+              className={`shrink-0 border-b-2 py-3 text-[1rem] ${path === href ? "border-signal text-ink" : "border-transparent text-muted"}`}>{l}</Link>
           ))}
         </nav>
       </header>
@@ -168,8 +168,8 @@ export function StudyControls({ study }: { study: { id: number; status: string; 
         </div>
       </div>
       <div className="grid gap-5 md:grid-cols-2">
-        <div><label className={label}>Intro text (blank = default)</label><textarea className="field" rows={5} value={intro} onChange={(e) => setIntro(e.target.value)} /></div>
-        <div><label className={label}>Debrief text (blank = default)</label><textarea className="field" rows={5} value={debrief} onChange={(e) => setDebrief(e.target.value)} /></div>
+        <div><label className={label}>Intro text (blank = default)</label><textarea aria-label="Intro text (blank = default)" className="field" rows={5} value={intro} onChange={(e) => setIntro(e.target.value)} /></div>
+        <div><label className={label}>Debrief text (blank = default)</label><textarea aria-label="Debrief text (blank = default)" className="field" rows={5} value={debrief} onChange={(e) => setDebrief(e.target.value)} /></div>
       </div>
       <button className={btn} onClick={() => patch({ intro, debrief })}>Save texts</button>
     </div>
@@ -187,11 +187,11 @@ export function NewStudyForm() {
       try { await call("POST", "/api/admin/studies", f); router.push(`/admin?study=${f.slug}`); router.refresh(); }
       catch (x) { setErr((x as Error).message); }
     }}>
-      <div><label className={label}>URL slug</label><input className="field" placeholder="bangla" value={f.slug} onChange={set("slug")} required /></div>
-      <div><label className={label}>Study name</label><input className="field" placeholder="Voices & Speaking Styles (Bangla)" value={f.name} onChange={set("name")} required /></div>
-      <div><label className={label}>Base language</label><input className="field" placeholder="Bangla" value={f.baseLanguage} onChange={set("baseLanguage")} required /></div>
-      <div><label className={label}>Mixed-in language</label><input className="field" value={f.mixLanguage} onChange={set("mixLanguage")} /></div>
-      <div><label className={label}>UI locale</label><input className="field" value={f.locale} onChange={set("locale")} /></div>
+      <div><label className={label}>URL slug</label><input aria-label="URL slug" className="field" placeholder="bangla" value={f.slug} onChange={set("slug")} required /></div>
+      <div><label className={label}>Study name</label><input aria-label="Study name" className="field" placeholder="Voices & Speaking Styles (Bangla)" value={f.name} onChange={set("name")} required /></div>
+      <div><label className={label}>Base language</label><input aria-label="Base language" className="field" placeholder="Bangla" value={f.baseLanguage} onChange={set("baseLanguage")} required /></div>
+      <div><label className={label}>Mixed-in language</label><input aria-label="Mixed-in language" className="field" value={f.mixLanguage} onChange={set("mixLanguage")} /></div>
+      <div><label className={label}>UI locale</label><input aria-label="UI locale" className="field" value={f.locale} onChange={set("locale")} /></div>
       <div className="flex items-end"><button className="btn btn-sm w-full"><Plus size={14} /> Create study (draft)</button></div>
       {err && <p className="text-signal sm:col-span-2">{err}</p>}
     </form>
@@ -237,7 +237,7 @@ export function UploadForm({ studyId }: { studyId: number }) {
       </label>
       <div className="grid gap-5 sm:grid-cols-3">
         <div><label className={label}>Speaker ID</label>
-          <input className="field" placeholder="e.g. M1, F2" value={f.speakerId} onChange={(e) => setF({ ...f, speakerId: e.target.value })} required /></div>
+          <input aria-label="Speaker ID" className="field" placeholder="e.g. M1, F2" value={f.speakerId} onChange={(e) => setF({ ...f, speakerId: e.target.value })} required /></div>
         <div><p className={label}>Speaker gender</p><Seg value={f.speakerGender as "female"} options={[["female", "Female"], ["male", "Male"]]} onChange={(v) => setF({ ...f, speakerGender: v })} /></div>
         <div><p className={label}>Style</p><Seg value={f.guise as "mixed"} options={[["mixed", "Code-mixed"], ["pure", "Pure"]]} onChange={(v) => setF({ ...f, guise: v })} /></div>
       </div>
@@ -343,17 +343,17 @@ export function QuestionForm({ studyId, clips }: { studyId: number; clips: ClipO
       setBusy(false);
     }}>
       <div><label className={label}>Question</label>
-        <input className="field !py-3 !text-[1.1rem]" placeholder="e.g. How friendly does this speaker sound?" value={f.prompt} onChange={(e) => setF({ ...f, prompt: e.target.value })} required maxLength={300} /></div>
+        <input aria-label="Question" className="field !py-3 !text-[1.1rem]" placeholder="e.g. How friendly does this speaker sound?" value={f.prompt} onChange={(e) => setF({ ...f, prompt: e.target.value })} required maxLength={300} /></div>
       <div className="grid gap-6 sm:grid-cols-2">
         <div><p className={label}>Answer type</p><Seg value={f.kind as "scale"} options={[["scale", "Scale"], ["text", "Free text"]]} onChange={(v) => setF({ ...f, kind: v })} /></div>
         <div><p className={label}>Ask</p><Seg value={f.scope as "clip"} options={[["clip", "After a recording"], ["final", "Once, at the end"]]} onChange={(v) => setF({ ...f, scope: v })} /></div>
       </div>
       {f.kind === "scale" && (
         <div className="grid gap-5 sm:grid-cols-4">
-          <div><label className={label}>From</label><input type="number" className="field" min={0} max={10} value={f.scaleMin} onChange={(e) => setF({ ...f, scaleMin: Number(e.target.value) })} /></div>
-          <div><label className={label}>To</label><input type="number" className="field" min={1} max={11} value={f.scaleMax} onChange={(e) => setF({ ...f, scaleMax: Number(e.target.value) })} /></div>
-          <div><label className={label}>Low-end label</label><input className="field" value={f.low} onChange={(e) => setF({ ...f, low: e.target.value })} /></div>
-          <div><label className={label}>High-end label</label><input className="field" value={f.high} onChange={(e) => setF({ ...f, high: e.target.value })} /></div>
+          <div><label className={label}>From</label><input aria-label="From" type="number" className="field" min={0} max={10} value={f.scaleMin} onChange={(e) => setF({ ...f, scaleMin: Number(e.target.value) })} /></div>
+          <div><label className={label}>To</label><input aria-label="To" type="number" className="field" min={1} max={11} value={f.scaleMax} onChange={(e) => setF({ ...f, scaleMax: Number(e.target.value) })} /></div>
+          <div><label className={label}>Low-end label</label><input aria-label="Low-end label" className="field" value={f.low} onChange={(e) => setF({ ...f, low: e.target.value })} /></div>
+          <div><label className={label}>High-end label</label><input aria-label="High-end label" className="field" value={f.high} onChange={(e) => setF({ ...f, high: e.target.value })} /></div>
         </div>
       )}
       {f.scope === "clip" && <div><p className={label}>Ask this for</p><ClipPicker clips={clips} value={clipIds} onChange={setClipIds} /></div>}
@@ -398,12 +398,12 @@ export function QuestionRow({ q, n, clips, index }: {
       {open && (
         <div className="space-y-6 bg-sunk px-5 py-6">
           <div><label className={label}>Question text</label>
-            <input className="field" value={prompt} maxLength={300} onChange={(e) => setPrompt(e.target.value)}
+            <input aria-label="Question text" className="field" value={prompt} maxLength={300} onChange={(e) => setPrompt(e.target.value)}
               onBlur={() => prompt.trim() && prompt !== q.prompt && patch({ prompt })} /></div>
           {q.kind === "scale" && (
             <div className="grid gap-5 sm:grid-cols-2">
-              <div><label className={label}>Low-end label</label><input className="field" defaultValue={q.low_label ?? ""} onBlur={(e) => e.target.value !== (q.low_label ?? "") && patch({ low: e.target.value })} /></div>
-              <div><label className={label}>High-end label</label><input className="field" defaultValue={q.high_label ?? ""} onBlur={(e) => e.target.value !== (q.high_label ?? "") && patch({ high: e.target.value })} /></div>
+              <div><label className={label}>Low-end label</label><input aria-label="Low-end label" className="field" defaultValue={q.low_label ?? ""} onBlur={(e) => e.target.value !== (q.low_label ?? "") && patch({ low: e.target.value })} /></div>
+              <div><label className={label}>High-end label</label><input aria-label="High-end label" className="field" defaultValue={q.high_label ?? ""} onBlur={(e) => e.target.value !== (q.high_label ?? "") && patch({ high: e.target.value })} /></div>
             </div>
           )}
           <div className="flex flex-wrap items-center gap-6">

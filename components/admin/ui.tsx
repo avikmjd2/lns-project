@@ -55,7 +55,7 @@ export function Badge({ children, tone = "ink" }: { children: ReactNode; tone?: 
 }
 
 export function TableShell({ children }: { children: ReactNode }) {
-  return <div className="overflow-x-auto border-y border-ink">{children}</div>;
+  return <div className="overflow-x-auto border-y border-ink" role="region" aria-label="Table, scrolls sideways on small screens" tabIndex={0}>{children}</div>;
 }
 
 export const th = "label border-b border-ink px-3 py-2.5 text-left font-normal first:pl-0";

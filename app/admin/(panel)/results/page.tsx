@@ -47,7 +47,7 @@ export default async function Results({ searchParams }: { searchParams: Promise<
       <nav className="mb-10 flex flex-wrap gap-x-6 gap-y-2" aria-label="Measure">
         {measures.map((x) => (
           <Link key={x.key} href={`/admin/results?study=${study.slug}&m=${x.key}`}
-            className={`border-b-2 pb-0.5 text-[1.02rem] leading-snug transition-colors ${x.key === m ? "border-signal text-ink" : "border-transparent text-muted hover:text-ink"}`}>{x.label}</Link>
+            className={`border-b-2 py-2 text-[1.02rem] leading-snug transition-colors ${x.key === m ? "border-signal text-ink" : "border-transparent text-muted hover:text-ink"}`}>{x.label}</Link>
         ))}
       </nav>
 
