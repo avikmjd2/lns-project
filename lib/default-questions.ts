@@ -75,10 +75,15 @@ export async function applyMissingQuestions(): Promise<void> {
   await db`UPDATE studies SET defaults_applied = true WHERE NOT defaults_applied`;
 }
 
+// Perceived-age answers. Finer steps around the speakers' real age (about 19) so the question can tell them apart.
+const AGE_PROMPT = "How old does this speaker seem?";
+const AGE_OPTIONS = ["Under 18", "18–19", "20–21", "22–24", "25–29", "30–39", "40–49", "50 or older"];
+const AGE_OPTIONS_V1 = ["Under 25", "25–34", "35–44", "45–54", "55 or older"];
+
 const RESEARCH: { pos: number; kind: "scale" | "choice"; scope: "clip" | "final"; prompt: string; low?: string; high?: string; options?: string[] }[] = [
   { pos: 9, kind: "scale", scope: "clip", prompt: "How much is this speaker like you?", low: "Not at all like me", high: "Very much like me" },
   { pos: 10, kind: "scale", scope: "clip", prompt: "How natural does this speaker's way of speaking sound?", low: "Not natural at all", high: "Completely natural" },
-  { pos: 11, kind: "choice", scope: "clip", prompt: "How old does this speaker seem?", options: ["Under 25", "25–34", "35–44", "45–54", "55 or older"] },
+  { pos: 11, kind: "choice", scope: "clip", prompt: "How old does this speaker seem?", options: AGE_OPTIONS },
   { pos: 13, kind: "scale", scope: "final", prompt: "In general, how do you feel about people who mix Hindi and English when they speak?", low: "Very negatively", high: "Very positively" },
   { pos: 14, kind: "choice", scope: "final", prompt: "In which language did you mostly study at school?", options: ["English", "Hindi", "English and Hindi equally", "Another language"] },
 ];
@@ -120,4 +125,19 @@ export async function applyTrimmedQuestions(): Promise<void> {
     WHERE q.study_id = s.id AND NOT s.trimmed_questions_applied
       AND q.prompt IN ('Rate this person on entertainingness', 'Rate this person on ambition')`;
   await db`UPDATE studies SET trimmed_questions_applied = true WHERE NOT trimmed_questions_applied`;
+}
+
+/**
+ * Replaces the first, coarse perceived-age ranges (Under 25 / 25–34 / ...) with finer ones. Idempotent: it only touches a
+ * question whose options are still exactly the old default list, so ranges an admin created themselves are never changed.
+ * Answers given on the old ranges can't be compared with the new ones, so they are removed with the old options.
+ */
+export async function applyAgeRanges(): Promise<void> {
+  await sql()`
+    WITH upd AS (
+      UPDATE questions SET options = ${AGE_OPTIONS}::text[]
+      WHERE prompt = ${AGE_PROMPT} AND kind = 'choice' AND options = ${AGE_OPTIONS_V1}::text[]
+      RETURNING id
+    )
+    DELETE FROM answers WHERE question_id IN (SELECT id FROM upd)`;
 }

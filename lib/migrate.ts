@@ -1,6 +1,6 @@
 import { sql } from "./db";
 import { SCHEMA, UPGRADES } from "./schema";
-import { applyStudyQuestions, applyMissingQuestions, applyResearchQuestions, applyTrimmedQuestions } from "./default-questions";
+import { applyStudyQuestions, applyMissingQuestions, applyResearchQuestions, applyTrimmedQuestions, applyAgeRanges } from "./default-questions";
 
 let ready: Promise<void> | null = null;
 
@@ -38,6 +38,8 @@ async function run() {
   await applyResearchQuestions();
   // Remove the entertainingness and ambition questions (once per study).
   await applyTrimmedQuestions();
+  // Finer perceived-age ranges (updates the question only while it still has the original coarse ones).
+  await applyAgeRanges();
 }
 
 /** Creates or upgrades the database tables on first use (once per server instance). */
