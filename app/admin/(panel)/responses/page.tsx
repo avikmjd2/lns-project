@@ -6,7 +6,7 @@ import { Badge, PageHeader, Panel, TableShell, td, th } from "@/components/admin
 
 export const dynamic = "force-dynamic";
 
-type P = { id: string; listener_gender: string; age: number | null; first_language: string | null; form: string; started_at: string; completed_at: string | null; n_rated: number; n_total: number };
+type P = { id: string; listener_gender: string; age: number | null; first_language: string | null; repeat_device: boolean; form: string; started_at: string; completed_at: string | null; n_rated: number; n_total: number };
 
 export default async function Responses({ searchParams }: { searchParams: Promise<{ study?: string }> }) {
   const ctx = await loadAdminCtx((await searchParams).study);
@@ -14,7 +14,7 @@ export default async function Responses({ searchParams }: { searchParams: Promis
   const { study } = ctx;
   const db = sql();
   const rows = (await db`
-    SELECT p.id, p.listener_gender, p.age, p.first_language, p.form, p.started_at, p.completed_at,
+    SELECT p.id, p.listener_gender, p.age, p.first_language, p.repeat_device, p.form, p.started_at, p.completed_at,
            (SELECT COUNT(*)::int FROM ratings r WHERE r.participant_id = p.id) AS n_rated,
            jsonb_array_length(p.clip_order) AS n_total
     FROM participants p WHERE p.study_id = ${study.id} ORDER BY p.started_at DESC`) as P[];
@@ -83,7 +83,7 @@ export default async function Responses({ searchParams }: { searchParams: Promis
                 <tr key={r.id}>
                   <td className={`${td} numeral text-[13px]`}>{new Date(r.started_at).toLocaleString()}</td>
                   <td className={`${td} capitalize`}>{r.listener_gender}</td><td className={`${td} numeral`}>{r.age}</td><td className={td}>{r.first_language ?? "–"}</td><td className={`${td} numeral`}>{r.form}</td>
-                  <td className={td}>{r.completed_at ? <Badge>Completed</Badge> : <Badge tone="muted">{r.n_rated}/{r.n_total} clips</Badge>}</td>
+                  <td className={td}>{r.completed_at ? <Badge>Completed</Badge> : <Badge tone="muted">{r.n_rated}/{r.n_total} clips</Badge>}{r.repeat_device && <> <Badge tone="signal">Same device</Badge></>}</td>
                   <td className={`${td} text-right`}><DeleteParticipant id={r.id} /></td>
                 </tr>
               ))}

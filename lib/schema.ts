@@ -79,6 +79,8 @@ export const SCHEMA: string[] = [
   `ALTER TABLE questions ADD COLUMN IF NOT EXISTS clip_ids INT[]`,
   // Set once a study's question list has been brought up to date; after that it is never touched again.
   `ALTER TABLE studies ADD COLUMN IF NOT EXISTS defaults_applied BOOLEAN NOT NULL DEFAULT false`,
+  // True when the person said they are a different person using a device that already completed the survey.
+  `ALTER TABLE participants ADD COLUMN IF NOT EXISTS repeat_device BOOLEAN NOT NULL DEFAULT false`,
   // Add first_language to participants (upgrade).
   `ALTER TABLE participants ADD COLUMN IF NOT EXISTS first_language TEXT`,
   `CREATE INDEX IF NOT EXISTS answers_participant_idx ON answers (participant_id)`,

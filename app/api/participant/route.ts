@@ -14,6 +14,7 @@ export async function POST(req: Request) {
   const gender = String(body?.gender ?? "");
   const age = Number(body?.age);
   const firstLanguage = String(body?.firstLanguage ?? "").trim().slice(0, 100);
+  const repeatDevice = body?.repeatDevice === true;
   if (!["male", "female", "other", "na"].includes(gender) || !(age >= 18 && age <= 99) || !firstLanguage) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
@@ -42,8 +43,8 @@ export async function POST(req: Request) {
 
   const ordered = shuffle(clips);
   const inserted = (await db`
-    INSERT INTO participants (study_id, listener_gender, age, form, clip_order, first_language)
-    VALUES (${study.id}, ${gender}, ${age}, ${combo}, ${JSON.stringify(ordered.map((c) => c.id))}::jsonb, ${firstLanguage})
+    INSERT INTO participants (study_id, listener_gender, age, form, clip_order, first_language, repeat_device)
+    VALUES (${study.id}, ${gender}, ${age}, ${combo}, ${JSON.stringify(ordered.map((c) => c.id))}::jsonb, ${firstLanguage}, ${repeatDevice})
     RETURNING id`) as { id: string }[];
   return NextResponse.json({
     participantId: inserted[0].id,

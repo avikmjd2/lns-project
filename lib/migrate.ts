@@ -14,11 +14,12 @@ async function run() {
       EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ratings' AND column_name = 'friendly') AS old_ratings,
       EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'participants' AND column_name = 'first_language') AS first_language,
       EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'participants_form_abcd') AS combos,
-      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'studies' AND column_name = 'defaults_applied') AS defaults_applied
-  `) as { studies: boolean; questions: boolean; clip_ids: boolean; old_ratings: boolean; first_language: boolean; combos: boolean; defaults_applied: boolean }[];
+      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'studies' AND column_name = 'defaults_applied') AS defaults_applied,
+      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'participants' AND column_name = 'repeat_device') AS repeat_device
+  `) as { studies: boolean; questions: boolean; clip_ids: boolean; old_ratings: boolean; first_language: boolean; combos: boolean; defaults_applied: boolean; repeat_device: boolean }[];
   // The statements are idempotent; only run them when something is missing or outdated so that
   // the default questions are seeded once and not re-created after an admin deletes them.
-  if (!s.studies || !s.questions || !s.clip_ids || s.old_ratings || !s.first_language || !s.defaults_applied) {
+  if (!s.studies || !s.questions || !s.clip_ids || s.old_ratings || !s.first_language || !s.defaults_applied || !s.repeat_device) {
     for (const stmt of SCHEMA) await db.query(stmt);
   }
   // Allow clip combinations A-D on participants.form (the first schema only allowed A and B).

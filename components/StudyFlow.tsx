@@ -15,9 +15,19 @@ type StudyInfo = {
   questions: Q[];
 };
 type Clip = { id: number; url: string };
-type Step = "loading" | "closed" | "welcome" | "about" | "clips" | "final" | "done";
+type Step = "loading" | "closed" | "repeat" | "already" | "welcome" | "about" | "clips" | "final" | "done";
 type Answers = Record<number, number | string>;
 type L = ReturnType<typeof getLocale>;
+
+// A cookie, separate from the localStorage used for resuming, marks a device that completed the survey.
+// It is only used to show a polite notice; nobody is ever blocked.
+const doneCookie = (slug: string) => `lns_done_${slug}`;
+function hasDoneCookie(slug: string) {
+  try { return document.cookie.split("; ").includes(`${doneCookie(slug)}=1`); } catch { return false; }
+}
+function setDoneCookie(slug: string) {
+  try { document.cookie = `${doneCookie(slug)}=1; max-age=31536000; path=/; SameSite=Lax`; } catch {}
+}
 
 const post = (url: string, body: unknown) =>
   fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -31,6 +41,7 @@ export default function StudyFlow({ slug }: { slug: string }) {
   const [clipFrac, setClipFrac] = useState(0);
   const [resumed, setResumed] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [repeatDevice, setRepeatDevice] = useState(false);
   const key = `lns_pid_${slug}`;
 
   const t = useMemo(() => getLocale(study?.locale), [study?.locale]);
@@ -66,7 +77,7 @@ export default function StudyFlow({ slug }: { slug: string }) {
             }
           }
         }
-        setStep("welcome");
+        setStep(hasDoneCookie(slug) ? "repeat" : "welcome");
       } catch {
         setStep("closed");
       }
@@ -75,7 +86,7 @@ export default function StudyFlow({ slug }: { slug: string }) {
 
   const start = useCallback(async (gender: string, age: number, firstLanguage: string) => {
     setError(null);
-    const r = await post("/api/participant", { slug, gender, age, firstLanguage });
+    const r = await post("/api/participant", { slug, gender, age, firstLanguage, repeatDevice });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
       setError(j.error === "no_clips" ? t.noClips : t.saveError);
@@ -84,11 +95,12 @@ export default function StudyFlow({ slug }: { slug: string }) {
     const p = await r.json();
     try { localStorage.setItem(key, p.participantId); } catch {}
     setPid(p.participantId); setClips(p.clips); setIdx(0); setStep("clips");
-  }, [slug, key, t]);
+  }, [slug, key, t, repeatDevice]);
 
   async function finish(answers?: Answers) {
     const r = await post("/api/complete", { participantId: pid, answers });
     if (!r.ok) throw new Error("complete");
+    setDoneCookie(slug);
     setStep("done"); window.scrollTo({ top: 0 });
   }
 
@@ -103,12 +115,30 @@ export default function StudyFlow({ slug }: { slug: string }) {
   const label = step === "final" ? t.finalTitle : step === "clips" || step === "done" ? "" : study.name;
 
   return (
-    <Shell progress={step === "closed" ? undefined : progress} label={label}>
+    <Shell progress={step === "closed" || step === "repeat" || step === "already" ? undefined : progress} label={label}>
       {step === "closed" && (
         <section className="rise">
           <p className="label">Voices &amp; speaking styles</p>
           <h1 className="mt-3 text-[2.4rem] font-medium leading-[1.05] tracking-[-0.02em]">{t.closedTitle}</h1>
           <p className="mt-4 text-[1.15rem] text-muted">{t.closedBody}</p>
+        </section>
+      )}
+      {step === "repeat" && (
+        <section className="rise">
+          <p className="label">{t.repeatLabel}</p>
+          <h1 className="mt-4 text-[2.4rem] font-medium leading-[1.05] tracking-[-0.02em] sm:text-[3rem]">{t.repeatTitle}</h1>
+          <p className="mt-5 text-[1.15rem] leading-[1.55] text-ink/80">{t.repeatBody}</p>
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+            <button className="btn" onClick={() => { setRepeatDevice(true); setStep("welcome"); }}>{t.repeatSomeoneElse} <ArrowRight size={16} /></button>
+            <button className="btn btn-outline" onClick={() => setStep("already")}>{t.repeatThatWasMe}</button>
+          </div>
+        </section>
+      )}
+      {step === "already" && (
+        <section className="rise">
+          <span className="stamp label !text-signal inline-block border-2 border-signal px-3 py-1.5 tracking-[0.18em]">Received</span>
+          <h1 className="mt-7 text-[2.4rem] font-medium leading-[1.05] tracking-[-0.02em] sm:text-[3rem]">{t.alreadyTitle}</h1>
+          <p className="mt-4 text-[1.2rem] text-muted">{t.alreadyBody}</p>
         </section>
       )}
       {step === "welcome" && <Welcome t={t} study={study} onStart={() => setStep("about")} />}
@@ -129,7 +159,14 @@ export default function StudyFlow({ slug }: { slug: string }) {
         />
       )}
       {step === "final" && pid && <FinalStep t={t} questions={finalQs} onDone={finish} />}
-      {step === "done" && <Done t={t} study={study} />}
+      {step === "done" && (
+        <Done t={t} study={study} onNewPerson={() => {
+          // A different person on the same device: start fresh, and mark the response so it can be reviewed.
+          try { localStorage.removeItem(key); } catch {}
+          setPid(null); setClips([]); setIdx(0); setResumed(false); setRepeatDevice(true); setStep("welcome");
+          window.scrollTo({ top: 0 });
+        }} />
+      )}
     </Shell>
   );
 }
@@ -530,7 +567,7 @@ function FinalStep({ t, questions, onDone }: { t: L; questions: Q[]; onDone: (a:
   );
 }
 
-function Done({ t, study }: { t: L; study: StudyInfo }) {
+function Done({ t, study, onNewPerson }: { t: L; study: StudyInfo; onNewPerson: () => void }) {
   return (
     <section className="rise">
       <span className="stamp label !text-signal inline-block border-2 border-signal px-3 py-1.5 tracking-[0.18em]">Received</span>
@@ -540,6 +577,9 @@ function Done({ t, study }: { t: L; study: StudyInfo }) {
         <p className="label !text-ink">{t.debriefTitle}</p>
         <p className="mt-3 text-[1.08rem] leading-[1.6] text-ink/85">{study.debrief || t.defaultDebrief(study.base_language, study.mix_language)}</p>
       </div>
+      <p className="mt-10 border-t border-rule pt-5 text-[0.98rem] text-muted">
+        {t.notYou} <button className="btn-quiet !p-0 align-baseline" onClick={onNewPerson}>{t.notYouAction}</button>
+      </p>
     </section>
   );
 }

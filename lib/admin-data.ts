@@ -1,7 +1,7 @@
 import { sql, type Question } from "./db";
 
 export type RatingRow = {
-  participant_id: string; study_slug: string; listener_gender: string; age: number | null; first_language: string | null; form: string;
+  participant_id: string; study_slug: string; listener_gender: string; age: number | null; first_language: string | null; repeat_device: boolean; form: string;
   clip_id: number; clip_label: string; speaker_id: string; speaker_gender: "male" | "female"; guise: "mixed" | "pure";
   played_pct: number | null; rated_at: string;
   /** Numeric answers to per-clip scale questions, keyed by question id. */
@@ -21,7 +21,7 @@ export async function getRatings(studyId: number | undefined, questions: Questio
   const where = studyId ? "AND p.study_id = $1" : "";
   const args = studyId ? [studyId] : [];
   const base = (await db.query(`
-    SELECT r.participant_id, s.slug AS study_slug, p.listener_gender, p.age, p.first_language, p.form,
+    SELECT r.participant_id, s.slug AS study_slug, p.listener_gender, p.age, p.first_language, p.repeat_device, p.form,
            c.id AS clip_id, c.label AS clip_label, c.speaker_id, c.speaker_gender, c.guise, r.played_pct, r.rated_at
     FROM ratings r
     JOIN participants p ON p.id = r.participant_id
@@ -83,13 +83,13 @@ const esc = (v: unknown) => {
  */
 export function toCsv(rows: RatingRow[], questions: Question[], finals: Map<string, Map<number, string | number>>) {
   const qcols = questions.map((q) => ({ q, name: `q${q.id}_${q.scope}_${q.prompt.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 30)}` }));
-  const head = ["participant_id", "study_slug", "listener_gender", "age", "first_language", "form", "clip_label", "speaker_id",
+  const head = ["participant_id", "study_slug", "listener_gender", "age", "first_language", "repeat_device", "form", "clip_label", "speaker_id",
     "speaker_gender", "guise", ...qcols.map((c) => c.name), "composite_1to5", "played_pct", "rated_at"];
   const lines = [head.join(",")];
   for (const r of rows) {
     const cells = qcols.map(({ q }) =>
       q.scope === "final" ? finals.get(r.participant_id)?.get(q.id) : q.kind === "scale" ? r.scores[q.id] : r.texts[q.id]);
-    lines.push([r.participant_id, r.study_slug, r.listener_gender, r.age, r.first_language, r.form, r.clip_label, r.speaker_id,
+    lines.push([r.participant_id, r.study_slug, r.listener_gender, r.age, r.first_language, r.repeat_device, r.form, r.clip_label, r.speaker_id,
       r.speaker_gender, r.guise, ...cells, Number.isFinite(r.composite) ? r.composite : "", r.played_pct, r.rated_at].map(esc).join(","));
   }
   return lines.join("\n");
