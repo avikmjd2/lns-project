@@ -196,14 +196,12 @@ function Welcome({ t, study, onStart }: { t: L; study: StudyInfo; onStart: () =>
 }
 
 const LANGUAGES = [
-  "Afrikaans", "Arabic", "Bengali", "Bulgarian", "Cantonese", "Catalan", "Croatian",
-  "Czech", "Danish", "Dutch", "English", "Estonian", "Filipino", "Finnish",
-  "French", "German", "Greek", "Gujarati", "Hebrew", "Hindi", "Hungarian",
-  "Indonesian", "Italian", "Japanese", "Kannada", "Korean", "Latvian", "Lithuanian",
-  "Malay", "Malayalam", "Mandarin", "Marathi", "Norwegian", "Odia", "Persian",
-  "Polish", "Portuguese", "Punjabi", "Romanian", "Russian", "Serbian", "Sinhala",
-  "Slovak", "Slovenian", "Spanish", "Swahili", "Swedish", "Tamil", "Telugu",
-  "Thai", "Turkish", "Ukrainian", "Urdu", "Vietnamese",
+  // English first, then all 22 scheduled Indian languages alphabetically
+  "English",
+  "Assamese", "Bengali", "Bodo", "Dogri", "Gujarati", "Hindi", "Kannada",
+  "Kashmiri", "Konkani", "Maithili", "Malayalam", "Manipuri", "Marathi",
+  "Nepali", "Odia", "Punjabi", "Sanskrit", "Santali", "Sindhi",
+  "Tamil", "Telugu", "Urdu",
 ];
 
 function About({ t, onSubmit, error }: { t: L; onSubmit: (g: string, a: number, lang: string) => Promise<void>; error: string | null }) {
