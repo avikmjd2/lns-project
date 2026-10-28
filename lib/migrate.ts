@@ -1,6 +1,6 @@
 import { sql } from "./db";
 import { SCHEMA, UPGRADES } from "./schema";
-import { applyStudyQuestions } from "./default-questions";
+import { applyStudyQuestions, applyMissingQuestions } from "./default-questions";
 
 let ready: Promise<void> | null = null;
 
@@ -24,8 +24,11 @@ async function run() {
   if (!s.combos) {
     for (const stmt of UPGRADES) await db.query(stmt);
   }
-  // Swap the untouched original default questions for the five study questions (no-op otherwise).
+  // Swap the untouched original default questions for the nine study questions (no-op otherwise).
   await applyStudyQuestions();
+  // Add any newer questions (leadership, entertainingness, ambition, feedback) that may be
+  // missing from studies that were migrated before these were added.
+  await applyMissingQuestions();
 }
 
 /** Creates or upgrades the database tables on first use (once per server instance). */

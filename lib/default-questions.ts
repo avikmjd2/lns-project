@@ -2,9 +2,8 @@ import { sql } from "./db";
 
 /**
  * Replaces the untouched original default questions of the "hindi" study (Friendly, Likable, Someone like me,
- * Educated, Confident; all 1-5) with the five study questions (all 1-10, asked after every clip).
- * Safe: does nothing if the admin already changed the questions or if any answers exist
- * (clear test data first, then click Sync recordings). One statement, so it is atomic and idempotent.
+ * Educated, Confident; all 1-5) with the nine study questions (all 1-10, asked after every clip).
+ * Safe: does nothing if the admin already changed the questions or if any answers exist.
  */
 export async function applyStudyQuestions(): Promise<void> {
   await sql()`
@@ -31,4 +30,42 @@ export async function applyStudyQuestions(): Promise<void> {
       (8, 'scale', 'Rate this person on ambition', 1, 10, 'Not at all', 'Extremely'),
       (9, 'text',  'Any additional feedback about this speaker?', 1, 10, NULL, NULL)
     ) AS v(pos, kind, prompt, mn, mx, low, high)`;
+}
+
+/**
+ * Additive migration: inserts questions that are missing from studies that were already upgraded
+ * from the original 5 defaults but predate leadership / entertainingness / ambition / feedback.
+ * Each INSERT is guarded by NOT EXISTS on the prompt so it is fully idempotent — safe to run
+ * on every cold start.
+ */
+export async function applyMissingQuestions(): Promise<void> {
+  const db = sql();
+  // Find all studies that already have the upgraded core questions (scale 1-10).
+  const studies = (await db`
+    SELECT s.id AS study_id
+    FROM studies s
+    WHERE EXISTS (
+      SELECT 1 FROM questions q
+      WHERE q.study_id = s.id AND q.scope = 'clip' AND q.kind = 'scale'
+        AND q.scale_min = 1 AND q.scale_max = 10
+        AND q.prompt = 'Rate this person on intelligence'
+    )
+  `) as { study_id: number }[];
+
+  for (const { study_id } of studies) {
+    const toAdd = [
+      { pos: 6, kind: "scale", prompt: "Rate this person on leadership",             mn: 1, mx: 10, low: "Not at all", high: "Extremely" },
+      { pos: 7, kind: "scale", prompt: "Rate this person on entertainingness",        mn: 1, mx: 10, low: "Not at all", high: "Extremely" },
+      { pos: 8, kind: "scale", prompt: "Rate this person on ambition",                mn: 1, mx: 10, low: "Not at all", high: "Extremely" },
+      { pos: 9, kind: "text",  prompt: "Any additional feedback about this speaker?", mn: 1, mx: 10, low: null,         high: null        },
+    ];
+    for (const q of toAdd) {
+      await db`
+        INSERT INTO questions (study_id, position, kind, scope, prompt, scale_min, scale_max, low_label, high_label, required)
+        SELECT ${study_id}, ${q.pos}, ${q.kind}, 'clip', ${q.prompt}, ${q.mn}, ${q.mx}, ${q.low}, ${q.high}, false
+        WHERE NOT EXISTS (
+          SELECT 1 FROM questions x WHERE x.study_id = ${study_id} AND x.prompt = ${q.prompt}
+        )`;
+    }
+  }
 }
