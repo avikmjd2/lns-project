@@ -35,8 +35,8 @@ export async function applyStudyQuestions(): Promise<void> {
 /**
  * Additive migration: inserts questions that are missing from studies that were already upgraded
  * from the original 5 defaults but predate leadership / entertainingness / ambition / feedback.
- * Each INSERT is guarded by NOT EXISTS on the prompt so it is fully idempotent — safe to run
- * on every cold start.
+ * Runs at most once per study (studies.defaults_applied), so questions the admin later deletes,
+ * rewords or makes optional are never put back.
  */
 export async function applyMissingQuestions(): Promise<void> {
   const db = sql();
@@ -44,7 +44,7 @@ export async function applyMissingQuestions(): Promise<void> {
   const studies = (await db`
     SELECT s.id AS study_id
     FROM studies s
-    WHERE EXISTS (
+    WHERE NOT s.defaults_applied AND EXISTS (
       SELECT 1 FROM questions q
       WHERE q.study_id = s.id AND q.scope = 'clip' AND q.kind = 'scale'
         AND q.scale_min = 1 AND q.scale_max = 10
@@ -79,4 +79,6 @@ export async function applyMissingQuestions(): Promise<void> {
         )
         AND required = false`;
   }
+  // From now on this study's question list belongs to the admin: never touch it again.
+  await db`UPDATE studies SET defaults_applied = true WHERE NOT defaults_applied`;
 }

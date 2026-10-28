@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   if (!/^[a-z0-9-]{2,30}$/.test(slug) || !name || !base) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   const db = sql();
   try {
-    await db`INSERT INTO studies (slug, name, base_language, mix_language, locale, status) VALUES (${slug}, ${name}, ${base}, ${mix}, ${locale}, 'draft')`;
+    await db`INSERT INTO studies (slug, name, base_language, mix_language, locale, status, defaults_applied) VALUES (${slug}, ${name}, ${base}, ${mix}, ${locale}, 'draft', true)`;
   } catch {
     return NextResponse.json({ error: "Slug already exists" }, { status: 409 });
   }
