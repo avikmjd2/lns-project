@@ -313,7 +313,6 @@ function ClipStep(props: {
   const [phase, setPhase] = useState<"listen" | "ask">("listen");
   const [qi, setQi] = useState(0);
   const [answers, setAnswers] = useState<Answers>({});
-  const [feedbacks, setFeedbacks] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -413,11 +412,7 @@ function ClipStep(props: {
               </div>
             </div>
             <div key={q.id} className="slide-in">
-              <QuestionField
-                q={q} t={t} value={answers[q.id]} onChange={(v) => setAnswer(q, v)} big
-                feedbackValue={q.kind === "scale" ? (feedbacks[q.id] ?? "") : undefined}
-                onFeedbackChange={q.kind === "scale" ? (v) => setFeedbacks((f) => ({ ...f, [q.id]: v })) : undefined}
-              />
+              <QuestionField q={q} t={t} value={answers[q.id]} onChange={(v) => setAnswer(q, v)} big />
             </div>
             {err && <p className="mt-4 rounded-xl bg-accent-soft p-3 text-sm text-accent" role="alert">{err}</p>}
             <div className="mt-7 flex items-center gap-2">
