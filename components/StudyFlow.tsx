@@ -78,9 +78,9 @@ export default function StudyFlow({ slug }: { slug: string }) {
     })();
   }, [slug, key]);
 
-  const start = useCallback(async (gender: string, age: number) => {
+  const start = useCallback(async (gender: string, age: number, firstLanguage: string) => {
     setError(null);
-    const r = await post("/api/participant", { slug, gender, age });
+    const r = await post("/api/participant", { slug, gender, age, firstLanguage });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
       setError(j.error === "no_clips" ? t.noClips : t.saveError);
@@ -195,13 +195,28 @@ function Welcome({ t, study, onStart }: { t: L; study: StudyInfo; onStart: () =>
   );
 }
 
-function About({ t, onSubmit, error }: { t: L; onSubmit: (g: string, a: number) => Promise<void>; error: string | null }) {
+const LANGUAGES = [
+  "Afrikaans", "Arabic", "Bengali", "Bulgarian", "Cantonese", "Catalan", "Croatian",
+  "Czech", "Danish", "Dutch", "English", "Estonian", "Filipino", "Finnish",
+  "French", "German", "Greek", "Gujarati", "Hebrew", "Hindi", "Hungarian",
+  "Indonesian", "Italian", "Japanese", "Kannada", "Korean", "Latvian", "Lithuanian",
+  "Malay", "Malayalam", "Mandarin", "Marathi", "Norwegian", "Odia", "Persian",
+  "Polish", "Portuguese", "Punjabi", "Romanian", "Russian", "Serbian", "Sinhala",
+  "Slovak", "Slovenian", "Spanish", "Swahili", "Swedish", "Tamil", "Telugu",
+  "Thai", "Turkish", "Ukrainian", "Urdu", "Vietnamese",
+];
+
+function About({ t, onSubmit, error }: { t: L; onSubmit: (g: string, a: number, lang: string) => Promise<void>; error: string | null }) {
   const [gender, setGender] = useState("");
   const [age, setAge] = useState("");
+  const [lang, setLang] = useState("");
+  const [otherLang, setOtherLang] = useState("");
   const [busy, setBusy] = useState(false);
   const [touched, setTouched] = useState(false);
   const ageN = Number(age);
   const ageOk = Number.isInteger(ageN) && ageN >= 18 && ageN <= 99;
+  const effectiveLang = lang === "Other" ? otherLang.trim() : lang;
+  const langOk = effectiveLang.length > 0;
   return (
     <Card>
       <h1 className="font-display text-3xl font-semibold tracking-tight">{t.aboutYou}</h1>
@@ -224,9 +239,36 @@ function About({ t, onSubmit, error }: { t: L; onSubmit: (g: string, a: number) 
           className="h-14 w-full rounded-2xl border-2 border-line bg-card px-4 text-lg outline-none transition focus:border-brand" />
         {touched && !ageOk && <p className="mt-2 text-sm text-accent">{t.ageError}</p>}
       </div>
+      {/* First language picker */}
+      <div className="mt-6">
+        <p className="mb-3 font-medium">What is your first language?</p>
+        <div className="max-h-48 overflow-y-auto rounded-2xl border-2 border-line bg-card">
+          <div className="grid grid-cols-2 gap-px bg-line">
+            {[...LANGUAGES, "Other"].map((l) => (
+              <button key={l} type="button" onClick={() => { setLang(l); if (l !== "Other") setOtherLang(""); }}
+                className={`px-3 py-2.5 text-left text-sm font-medium transition ${
+                  lang === l ? "bg-brand text-brand-ink" : "bg-card hover:bg-brand-soft hover:text-brand-strong"
+                }`}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+        {lang === "Other" && (
+          <input
+            id="lang-other"
+            type="text"
+            value={otherLang}
+            onChange={(e) => setOtherLang(e.target.value.slice(0, 60))}
+            placeholder="Please specify your language…"
+            className="mt-3 h-12 w-full rounded-2xl border-2 border-brand bg-card px-4 text-base outline-none transition focus:border-brand"
+            autoFocus
+          />
+        )}
+      </div>
       {error && <p className="mt-4 rounded-xl bg-accent-soft p-3 text-sm text-accent" role="alert">{error}</p>}
-      <button disabled={!gender || !ageOk || busy}
-        onClick={async () => { setBusy(true); await onSubmit(gender, ageN); setBusy(false); }}
+      <button disabled={!gender || !ageOk || !langOk || busy}
+        onClick={async () => { setBusy(true); await onSubmit(gender, ageN, effectiveLang); setBusy(false); }}
         className={`${btnPrimary} mt-7`}>
         {busy ? t.saving : <>{t.continue} <ArrowRight size={20} /></>}
       </button>
@@ -271,6 +313,7 @@ function ClipStep(props: {
   const [phase, setPhase] = useState<"listen" | "ask">("listen");
   const [qi, setQi] = useState(0);
   const [answers, setAnswers] = useState<Answers>({});
+  const [feedbacks, setFeedbacks] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -370,7 +413,11 @@ function ClipStep(props: {
               </div>
             </div>
             <div key={q.id} className="slide-in">
-              <QuestionField q={q} t={t} value={answers[q.id]} onChange={(v) => setAnswer(q, v)} big />
+              <QuestionField
+                q={q} t={t} value={answers[q.id]} onChange={(v) => setAnswer(q, v)} big
+                feedbackValue={q.kind === "scale" ? (feedbacks[q.id] ?? "") : undefined}
+                onFeedbackChange={q.kind === "scale" ? (v) => setFeedbacks((f) => ({ ...f, [q.id]: v })) : undefined}
+              />
             </div>
             {err && <p className="mt-4 rounded-xl bg-accent-soft p-3 text-sm text-accent" role="alert">{err}</p>}
             <div className="mt-7 flex items-center gap-2">

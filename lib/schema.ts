@@ -77,6 +77,8 @@ export const SCHEMA: string[] = [
   )`,
   // NULL = the question is asked for every clip; otherwise only for the listed clip ids.
   `ALTER TABLE questions ADD COLUMN IF NOT EXISTS clip_ids INT[]`,
+  // Add first_language to participants (upgrade).
+  `ALTER TABLE participants ADD COLUMN IF NOT EXISTS first_language TEXT`,
   `CREATE INDEX IF NOT EXISTS answers_participant_idx ON answers (participant_id)`,
   `INSERT INTO studies (slug, name, base_language, mix_language)
    VALUES ('hindi', 'Voices & Speaking Styles', 'Hindi', 'English')
