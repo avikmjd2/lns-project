@@ -1,15 +1,14 @@
-import { Mic } from "lucide-react";
 import { LoginForm } from "@/components/admin/bits";
 
 export const metadata = { title: "Admin login · Voices" };
 
 export default function LoginPage() {
   return (
-    <main className="backdrop grid min-h-screen flex-1 place-items-center px-4">
-      <div className="surface rise w-full max-w-sm rounded-3xl p-7 sm:p-8">
-        <span className="mb-5 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-brand to-brand-strong text-brand-ink shadow-lg"><Mic size={22} /></span>
-        <h1 className="font-display text-2xl font-semibold tracking-tight">Admin sign in</h1>
-        <p className="mb-6 mt-1 text-sm text-muted">Manage recordings, questions and responses.</p>
+    <main className="grid min-h-screen flex-1 place-items-center px-5">
+      <div className="rise w-full max-w-sm">
+        <div className="flex items-center gap-2"><i className="inline-block h-2.5 w-2.5 bg-signal" aria-hidden /><span className="text-[1.6rem] font-medium leading-none tracking-[-0.02em]">Voices</span></div>
+        <h1 className="mt-8 border-t-2 border-ink pt-5 text-[2.2rem] font-medium leading-[1.05] tracking-[-0.02em]">Admin sign in</h1>
+        <p className="mb-8 mt-2 text-muted">Recordings, questions and responses.</p>
         <LoginForm />
       </div>
     </main>

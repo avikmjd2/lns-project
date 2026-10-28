@@ -1,8 +1,8 @@
-import { AudioLines, CheckCircle2, Download, ExternalLink, PlayCircle, Users } from "lucide-react";
+import { ArrowUpRight, Download } from "lucide-react";
 import { loadAdminCtx } from "@/lib/admin-ctx";
 import { sql } from "@/lib/db";
 import { CopyButton, InitButton, NewStudyForm, StudyControls, btn, btn2 } from "@/components/admin/bits";
-import { Badge, PageHeader, Panel, Stat } from "@/components/admin/ui";
+import { Badge, PageHeader, Panel, Stats } from "@/components/admin/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -11,11 +11,10 @@ export default async function Overview({ searchParams }: { searchParams: Promise
   if (!ctx.ok) {
     return (
       <div className="mx-auto max-w-lg pt-10">
-        <Panel>
-          <h1 className="font-display text-2xl font-semibold">{ctx.reason === "env" ? "Database not connected" : "Set up the database"}</h1>
-          <p className="mb-5 mt-2 text-sm text-muted">{ctx.message}</p>
-          {ctx.reason === "setup" && <InitButton />}
-        </Panel>
+        <p className="label !text-signal">Setup</p>
+        <h1 className="mt-2 text-[2rem] font-medium leading-tight">{ctx.reason === "env" ? "Database not connected" : "Set up the database"}</h1>
+        <p className="mb-6 mt-3 text-muted">{ctx.message}</p>
+        {ctx.reason === "setup" && <InitButton />}
       </div>
     );
   }
@@ -29,23 +28,23 @@ export default async function Overview({ searchParams }: { searchParams: Promise
   const link = `/s/${study.slug}`;
 
   return (
-    <div className="space-y-6">
+    <div>
       <PageHeader
         title={study.name}
-        subtitle={<>{study.base_language} + {study.mix_language} study <Badge tone={study.status === "open" ? "brand" : "muted"}>{study.status}</Badge></>}
-        actions={<><a className={btn2} href={link} target="_blank"><ExternalLink size={15} /> Open survey</a><a className={btn} href={`/api/admin/export?study=${study.slug}`}><Download size={15} /> Export CSV</a></>}
+        subtitle={<>{study.base_language} + {study.mix_language} &nbsp;<Badge tone={study.status === "open" ? "ink" : "muted"}>{study.status}</Badge></>}
+        actions={<><a className={btn2} href={link} target="_blank">Open survey <ArrowUpRight size={13} /></a><a className={btn} href={`/api/admin/export?study=${study.slug}`}><Download size={14} /> Export CSV</a></>}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat icon={<AudioLines size={20} />} label="Recordings" value={clipCount.n} />
-        <Stat icon={<PlayCircle size={20} />} label="Started" value={counts.started} />
-        <Stat icon={<CheckCircle2 size={20} />} label="Completed" value={counts.completed} />
-        <Stat icon={<Users size={20} />} label="Completion rate" value={`${rate}%`} />
-      </div>
+      <Stats items={[
+        { label: "Recordings", value: clipCount.n },
+        { label: "Started", value: counts.started },
+        { label: "Completed", value: counts.completed },
+        { label: "Completion", value: `${rate}%` },
+      ]} />
 
-      <Panel title="Participant link" description="Share this link. Participants can only join while the status is open.">
+      <Panel className="!mt-12" title="Participant link" description="Share this link. Participants can only join while the status is open.">
         <div className="flex flex-wrap items-center gap-3">
-          <code className="min-w-0 flex-1 truncate rounded-xl border border-line bg-card2 px-4 py-2.5 text-sm">{link}</code>
+          <code className="numeral min-w-0 flex-1 truncate border border-rule bg-panel px-4 py-2.5 text-[14px]">{link}</code>
           <CopyButton text={link} />
         </div>
       </Panel>

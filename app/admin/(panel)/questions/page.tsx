@@ -1,4 +1,3 @@
-import { Plus } from "lucide-react";
 import { loadAdminCtx } from "@/lib/admin-ctx";
 import { sql, getQuestions } from "@/lib/db";
 import { QuestionForm, QuestionRow } from "@/components/admin/bits";
@@ -19,34 +18,36 @@ export default async function Questions({ searchParams }: { searchParams: Promis
     WHERE question_id = ANY(${qs.map((q) => q.id)}::int[]) GROUP BY question_id`) as { question_id: number; n: number }[];
   const nOf = (id: number) => counts.find((c) => c.question_id === id)?.n ?? 0;
   const clipQs = qs.filter((q) => q.scope === "clip"), finalQs = qs.filter((q) => q.scope === "final");
+  const key = (q: (typeof qs)[number]) => `${q.id}-${q.prompt}-${q.scope}-${q.required}-${String(q.clip_ids)}`;
 
   return (
-    <div className="space-y-6">
+    <div>
       <PageHeader
         title="Questions"
         subtitle="Participants hear a recording, then answer its questions one at a time. A question can be asked for every recording or only the ones you pick, so you never need to copy it. Scale questions feed the Results charts; free-text answers appear in Responses and the CSV."
       />
 
-      <details className="surface group rounded-2xl" open={qs.length === 0}>
-        <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-semibold sm:px-6"><Plus size={18} className="text-brand transition group-open:rotate-45" /> Add a question</summary>
-        <div className="border-t border-line p-4 sm:p-6"><QuestionForm studyId={study.id} clips={clips} /></div>
+      <details className="group border-b border-ink pb-6" open={qs.length === 0}>
+        <summary className="flex cursor-pointer list-none items-center justify-between py-1">
+          <span className="text-[1.45rem] font-medium tracking-[-0.01em]">Add a question</span>
+          <span className="label group-open:hidden">Open +</span><span className="label hidden group-open:inline">Close −</span>
+        </summary>
+        <div className="mt-6"><QuestionForm studyId={study.id} clips={clips} /></div>
       </details>
 
-      <section>
-        <h2 className="mb-3 text-base font-semibold">After a recording <span className="font-normal text-muted">({clipQs.length})</span></h2>
-        <ul className="space-y-3">
-          {clipQs.length === 0 && <li className="surface rounded-2xl p-6 text-center text-sm text-muted">No per-recording questions yet. Participants would just listen.</li>}
-          {clipQs.map((q, i) => <QuestionRow key={`${q.id}-${q.prompt}-${q.scope}-${q.required}-${String(q.clip_ids)}`} q={q} n={nOf(q.id)} clips={clips} index={i + 1} />)}
+      <Panel className="!mt-10" title={`After a recording (${clipQs.length})`}>
+        <ul className="border-t border-ink">
+          {clipQs.length === 0 && <li className="border-b border-rule py-6 text-muted">No per-recording questions yet. Participants would just listen.</li>}
+          {clipQs.map((q, i) => <QuestionRow key={key(q)} q={q} n={nOf(q.id)} clips={clips} index={i + 1} />)}
         </ul>
-      </section>
-      <section>
-        <h2 className="mb-3 text-base font-semibold">Once, at the end <span className="font-normal text-muted">({finalQs.length})</span></h2>
-        <ul className="space-y-3">
-          {finalQs.length === 0 && <li className="surface rounded-2xl p-6 text-center text-sm text-muted">None. Add one for general feedback or demographics.</li>}
-          {finalQs.map((q, i) => <QuestionRow key={`${q.id}-${q.prompt}-${q.scope}-${q.required}-${String(q.clip_ids)}`} q={q} n={nOf(q.id)} clips={clips} index={i + 1} />)}
+      </Panel>
+      <Panel title={`Once, at the end (${finalQs.length})`}>
+        <ul className="border-t border-ink">
+          {finalQs.length === 0 && <li className="border-b border-rule py-6 text-muted">None. Add one for general feedback or demographics.</li>}
+          {finalQs.map((q, i) => <QuestionRow key={key(q)} q={q} n={nOf(q.id)} clips={clips} index={i + 1} />)}
         </ul>
-      </section>
-      <Panel className="!bg-card2 !shadow-none"><p className="text-sm text-muted">The type and scale range of a question are fixed once created (delete and re-add to change them) so collected answers keep their meaning.</p></Panel>
+      </Panel>
+      <p className="label mt-8">The type and scale range of a question are fixed once created. Delete and re-add to change them, so collected answers keep their meaning.</p>
     </div>
   );
 }

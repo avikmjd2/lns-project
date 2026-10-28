@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Clock, Hand, Headphones, Mic, Pause, PartyPopper, Play, RotateCcw, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Pause, Play, RotateCcw } from "lucide-react";
 import { getLocale } from "@/locales";
 
 type Q = {
@@ -21,11 +21,6 @@ type L = ReturnType<typeof getLocale>;
 
 const post = (url: string, body: unknown) =>
   fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-
-const btnPrimary =
-  "inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-lg font-semibold text-brand-ink shadow-[0_6px_16px_-6px_var(--brand)] transition hover:brightness-110 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none";
-const btnGhost =
-  "inline-flex h-12 items-center justify-center gap-2 rounded-2xl px-4 text-base font-medium text-muted transition hover:bg-card2 hover:text-foreground disabled:opacity-40";
 
 export default function StudyFlow({ slug }: { slug: string }) {
   const [study, setStudy] = useState<StudyInfo | null>(null);
@@ -98,22 +93,23 @@ export default function StudyFlow({ slug }: { slug: string }) {
   }
 
   if (step === "loading" || !study) {
-    return <Shell><div className="grid flex-1 place-items-center py-32"><div className="h-8 w-8 animate-spin rounded-full border-4 border-line border-t-brand" /></div></Shell>;
+    return <Shell><p className="label rise pt-24 text-center">Loading…</p></Shell>;
   }
   const total = clips.length || 4;
   const progress =
     step === "welcome" ? 0.02 : step === "about" ? 0.07 :
     step === "clips" ? 0.1 + 0.85 * ((idx + clipFrac) / total) :
     step === "final" ? 0.97 : 1;
-  const label = step === "clips" ? t.clipOf(idx + 1, total) : step === "final" ? t.finalTitle : step === "done" ? "" : study.name;
+  const label = step === "final" ? t.finalTitle : step === "clips" || step === "done" ? "" : study.name;
 
   return (
     <Shell progress={step === "closed" ? undefined : progress} label={label}>
       {step === "closed" && (
-        <Card><div className="text-center">
-          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-brand-soft text-brand"><Clock /></div>
-          <h1 className="font-display text-2xl font-semibold">{t.closedTitle}</h1><p className="mt-2 text-muted">{t.closedBody}</p>
-        </div></Card>
+        <section className="rise">
+          <p className="label">Voices &amp; speaking styles</p>
+          <h1 className="mt-3 text-[2.4rem] font-medium leading-[1.05] tracking-[-0.02em]">{t.closedTitle}</h1>
+          <p className="mt-4 text-[1.15rem] text-muted">{t.closedBody}</p>
+        </section>
       )}
       {step === "welcome" && <Welcome t={t} study={study} onStart={() => setStep("about")} />}
       {step === "about" && <About t={t} onSubmit={start} error={error} />}
@@ -140,58 +136,47 @@ export default function StudyFlow({ slug }: { slug: string }) {
 
 function Shell({ children, progress, label }: { children: React.ReactNode; progress?: number; label?: string }) {
   return (
-    <div className="backdrop flex min-h-screen flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-xl items-center justify-between px-4 pt-5">
-        <div className="flex items-center gap-2.5">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-brand-ink shadow-sm"><Mic size={18} /></span>
-          <span className="font-display text-lg font-semibold tracking-tight">Voices</span>
-        </div>
-        {label && <span className="max-w-[55%] truncate text-sm font-medium text-muted">{label}</span>}
+    <div className="flex min-h-screen flex-1 flex-col">
+      <header className="mx-auto flex w-full max-w-[660px] items-baseline justify-between gap-6 px-5 pt-6">
+        <span className="label !text-ink flex items-center gap-2"><i className="inline-block h-2 w-2 bg-signal" aria-hidden />Voices</span>
+        {label && <span className="label truncate">{label}</span>}
       </header>
       {progress !== undefined && (
-        <div className="mx-auto mt-4 w-full max-w-xl px-4">
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-line" role="progressbar" aria-valuenow={Math.round(progress * 100)} aria-valuemin={0} aria-valuemax={100}>
-            <div className="h-full rounded-full bg-brand transition-all duration-700 ease-out" style={{ width: `${Math.max(2, progress * 100)}%` }} />
+        <div className="mx-auto mt-4 w-full max-w-[660px] px-5">
+          <div className="h-[2px] w-full bg-rule" role="progressbar" aria-valuenow={Math.round(progress * 100)} aria-valuemin={0} aria-valuemax={100}>
+            <div className="h-full bg-ink transition-all duration-700 ease-out" style={{ width: `${Math.max(1, progress * 100)}%` }} />
           </div>
         </div>
       )}
-      <main className="mx-auto flex w-full max-w-xl flex-1 flex-col px-4 pb-16 pt-6 sm:pt-10">{children}</main>
+      <main className="mx-auto flex w-full max-w-[660px] flex-1 flex-col px-5 pb-24 pt-10 sm:pt-14">{children}</main>
     </div>
   );
 }
 
-function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <section className={`surface rise rounded-[28px] p-6 sm:p-9 ${className}`}>{children}</section>;
-}
-
 function Welcome({ t, study, onStart }: { t: L; study: StudyInfo; onStart: () => void }) {
   const [ok, setOk] = useState(false);
-  const icons = [Clock, ShieldCheck, Headphones, Hand];
   return (
-    <Card>
-      <div className="mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-brand to-brand-strong text-brand-ink shadow-lg"><Headphones size={30} /></div>
-      <h1 className="font-display text-[2rem] font-semibold leading-[1.1] tracking-tight sm:text-4xl">{t.welcomeTitle}</h1>
-      <p className="mt-4 text-[1.05rem] leading-relaxed text-muted">{study.intro || t.welcomeLead}</p>
-      <ul className="mt-6 grid gap-2.5 sm:grid-cols-2">
-        {t.welcomeFacts.map((f, i) => {
-          const Icon = icons[i % icons.length];
-          return (
-            <li key={f} className="flex items-start gap-3 rounded-2xl bg-card2 p-3.5 text-sm leading-snug">
-              <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand"><Icon size={16} /></span>
-              <span>{f}</span>
-            </li>
-          );
-        })}
-      </ul>
-      <label className="mt-6 flex cursor-pointer items-start gap-3 rounded-2xl border border-line p-4 text-sm leading-snug transition hover:border-brand">
-        <span className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md border-2 transition ${ok ? "border-brand bg-brand text-brand-ink" : "border-line"}`}>
-          {ok && <Check size={16} strokeWidth={3} />}
+    <section className="rise">
+      <p className="label">{study.name}</p>
+      <h1 className="mt-4 text-[2.7rem] font-medium leading-[1.02] tracking-[-0.025em] sm:text-[3.6rem]">{t.welcomeTitle}</h1>
+      <p className="mt-6 text-[1.2rem] leading-[1.55] text-ink/80">{study.intro || t.welcomeLead}</p>
+      <ol className="mt-9 border-b border-rule">
+        {t.welcomeFacts.map((f, i) => (
+          <li key={f} className="grid grid-cols-[2.8rem_1fr] items-baseline border-t border-rule py-3.5">
+            <span className="numeral text-[13px] text-signal">{String(i + 1).padStart(2, "0")}</span>
+            <span className="text-[1.05rem]">{f}</span>
+          </li>
+        ))}
+      </ol>
+      <label className="mt-8 flex cursor-pointer items-start gap-4">
+        <span className={`mt-1 grid h-5 w-5 shrink-0 place-items-center border-[1.5px] border-ink ${ok ? "bg-ink text-paper" : ""}`}>
+          {ok && <Check size={14} strokeWidth={3} />}
         </span>
         <input type="checkbox" className="sr-only" checked={ok} onChange={(e) => setOk(e.target.checked)} />
-        <span>{t.consent}</span>
+        <span className="text-[1.02rem] leading-snug">{t.consent}</span>
       </label>
-      <button disabled={!ok} onClick={onStart} className={`${btnPrimary} mt-5`}>{t.start} <ArrowRight size={20} /></button>
-    </Card>
+      <button disabled={!ok} onClick={onStart} className="btn mt-8 w-full sm:w-auto sm:min-w-[14rem]">{t.start} <ArrowRight size={16} /></button>
+    </section>
   );
 }
 
@@ -216,81 +201,65 @@ function About({ t, onSubmit, error }: { t: L; onSubmit: (g: string, a: number, 
   const effectiveLang = lang === "Other" ? otherLang.trim() : lang;
   const langOk = effectiveLang.length > 0;
   return (
-    <Card>
-      <h1 className="font-display text-3xl font-semibold tracking-tight">{t.aboutYou}</h1>
-      <p className="mt-1.5 text-muted">{t.aboutYouLead}</p>
-      <fieldset className="mt-7">
-        <legend className="mb-3 font-medium">{t.genderQ}</legend>
-        <div className="grid grid-cols-2 gap-3">
+    <section className="rise">
+      <h1 className="text-[2.4rem] font-medium leading-[1.05] tracking-[-0.02em] sm:text-[3rem]">{t.aboutYou}</h1>
+      <p className="mt-3 text-[1.15rem] text-muted">{t.aboutYouLead}</p>
+
+      <fieldset className="mt-10">
+        <legend className="label mb-3">01 &nbsp;{t.genderQ}</legend>
+        <div className="grid grid-cols-2 gap-2">
           {t.genders.map((g) => (
-            <button key={g.v} type="button" onClick={() => setGender(g.v)} aria-pressed={gender === g.v}
-              className={`h-14 rounded-2xl border-2 px-3 font-medium transition active:scale-[0.98] ${gender === g.v ? "border-brand bg-brand-soft text-brand-strong" : "border-line bg-card hover:border-brand/50"}`}>
-              {g.t}
-            </button>
+            <button key={g.v} type="button" onClick={() => setGender(g.v)} aria-pressed={gender === g.v} className="choice">{g.t}</button>
           ))}
         </div>
       </fieldset>
-      <div className="mt-6">
-        <label htmlFor="age" className="mb-3 block font-medium">{t.ageQ}</label>
+
+      <div className="mt-9">
+        <label htmlFor="age" className="label mb-1 block">02 &nbsp;{t.ageQ}</label>
         <input id="age" inputMode="numeric" pattern="[0-9]*" value={age} placeholder={t.agePlaceholder}
           onChange={(e) => setAge(e.target.value.replace(/\D/g, "").slice(0, 2))} onBlur={() => setTouched(true)}
-          className="h-14 w-full rounded-2xl border-2 border-line bg-card px-4 text-lg outline-none transition focus:border-brand" />
-        {touched && !ageOk && <p className="mt-2 text-sm text-accent">{t.ageError}</p>}
+          className="w-full border-0 border-b border-ink bg-transparent py-2 text-[2rem] outline-none placeholder:text-rule focus:border-signal" />
+        {touched && !ageOk && <p className="mt-2 text-[0.95rem] text-signal">{t.ageError}</p>}
       </div>
-      {/* First language picker */}
-      <div className="mt-6">
-        <p className="mb-3 font-medium">What is your first language?</p>
-        <div className="max-h-48 overflow-y-auto rounded-2xl border-2 border-line bg-card">
-          <div className="grid grid-cols-2 gap-px bg-line">
+
+      <div className="mt-9">
+        <p className="label mb-3">03 &nbsp;What is your first language?</p>
+        <div className="max-h-52 overflow-y-auto border border-ink/35">
+          <div className="grid grid-cols-2 gap-px bg-rule">
             {[...LANGUAGES, "Other"].map((l) => (
               <button key={l} type="button" onClick={() => { setLang(l); if (l !== "Other") setOtherLang(""); }}
-                className={`px-3 py-2.5 text-left text-sm font-medium transition ${
-                  lang === l ? "bg-brand text-brand-ink" : "bg-card hover:bg-brand-soft hover:text-brand-strong"
-                }`}>
+                className={`px-3 py-2.5 text-left text-[1rem] transition-colors ${lang === l ? "bg-ink text-paper" : "bg-paper hover:bg-sunk"}`}>
                 {l}
               </button>
             ))}
           </div>
         </div>
         {lang === "Other" && (
-          <input
-            id="lang-other"
-            type="text"
-            value={otherLang}
-            onChange={(e) => setOtherLang(e.target.value.slice(0, 60))}
-            placeholder="Please specify your language…"
-            className="mt-3 h-12 w-full rounded-2xl border-2 border-brand bg-card px-4 text-base outline-none transition focus:border-brand"
-            autoFocus
-          />
+          <input id="lang-other" type="text" value={otherLang} onChange={(e) => setOtherLang(e.target.value.slice(0, 60))}
+            placeholder="Please specify your language…" className="field mt-3" autoFocus />
         )}
       </div>
-      {error && <p className="mt-4 rounded-xl bg-accent-soft p-3 text-sm text-accent" role="alert">{error}</p>}
+
+      {error && <p className="mt-6 border-l-2 border-signal pl-3 text-[1rem] text-signal" role="alert">{error}</p>}
       <button disabled={!gender || !ageOk || !langOk || busy}
         onClick={async () => { setBusy(true); await onSubmit(gender, ageN, effectiveLang); setBusy(false); }}
-        className={`${btnPrimary} mt-7`}>
-        {busy ? t.saving : <>{t.continue} <ArrowRight size={20} /></>}
+        className="btn mt-10 w-full sm:w-auto sm:min-w-[14rem]">
+        {busy ? t.saving : <>{t.continue} <ArrowRight size={16} /></>}
       </button>
-    </Card>
+    </section>
   );
 }
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
-/** Decorative waveform: bars fill as the clip plays. Heights are seeded per clip so each looks different. */
-function Waveform({ seed, progress, playing, compact }: { seed: number; progress: number; playing: boolean; compact?: boolean }) {
-  const n = compact ? 36 : 56;
+/** Thin printed waveform: played bars are inked in, the rest stay faint. Seeded per clip so each differs. */
+function Waveform({ seed, progress, compact }: { seed: number; progress: number; compact?: boolean }) {
+  const n = compact ? 44 : 72;
   return (
-    <div className={`flex items-center gap-[3px] ${compact ? "h-8" : "h-16"}`} aria-hidden>
+    <div className={`flex items-center gap-[2px] ${compact ? "h-8" : "h-20"}`} aria-hidden>
       {Array.from({ length: n }, (_, i) => {
-        const h = 0.22 + 0.78 * Math.abs(Math.sin(i * 1.7 + seed) * Math.cos(i * 0.55 + seed * 2.3));
-        const filled = (i + 1) / n <= progress / 100;
-        return (
-          <span key={i} className={`flex-1 rounded-full transition-colors duration-200 ${filled ? "bg-brand" : "bg-brand/25"}`}
-            style={{
-              height: `${h * 100}%`, transformOrigin: "center",
-              animation: playing && !filled ? `equalize ${0.7 + (i % 5) * 0.12}s ease-in-out ${(i % 7) * 0.05}s infinite` : undefined,
-            }} />
-        );
+        const h = 0.18 + 0.82 * Math.abs(Math.sin(i * 1.7 + seed) * Math.cos(i * 0.55 + seed * 2.3));
+        return <span key={i} className={`flex-1 ${(i + 1) / n <= progress / 100 ? "bg-ink" : "bg-rule"}`} style={{ height: `${h * 100}%` }} />;
       })}
     </div>
   );
@@ -315,7 +284,6 @@ function ClipStep(props: {
   const [answers, setAnswers] = useState<Answers>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const unlocked = maxPct >= 80 || audioFailed;
   const nq = questions.length;
@@ -324,7 +292,6 @@ function ClipStep(props: {
   useEffect(() => {
     onProgress(phase === "listen" ? 0 : nq ? 0.1 + 0.9 * Math.min(1, (qi + (curAnswered ? 1 : 0)) / nq) : 1);
   }, [phase, qi, curAnswered, nq, onProgress]);
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
   function toggle() {
     const a = audioRef.current; if (!a) return;
@@ -345,21 +312,40 @@ function ClipStep(props: {
     }
   }
 
-  function goNext() {
-    if (timer.current) clearTimeout(timer.current);
-    if (qi + 1 < nq) setQi(qi + 1); else save();
-  }
-  function setAnswer(q: Q, v: number | string) {
-    setAnswers((a) => ({ ...a, [q.id]: v }));
-  }
+  function goNext() { if (qi + 1 < nq) setQi(qi + 1); else save(); }
 
   const last = index + 1 === total;
   const q = questions[qi];
   const isLastQ = qi + 1 === nq;
   const ready = !q || !q.required || answered(q, answers);
 
+  /** Seek bar shared by both phases (draggable, committed on release). */
+  const scrubber = (
+    <input
+      type="range" min={0} max={100} step={0.1}
+      value={isDragging ? scrubPos : pos}
+      disabled={!dur}
+      aria-label="Audio seek"
+      className="slider-input slider-thin"
+      style={{ "--pct": `${isDragging ? scrubPos : pos}%` } as React.CSSProperties}
+      onMouseDown={() => { setIsDragging(true); setScrubPos(pos); }}
+      onTouchStart={() => { setIsDragging(true); setScrubPos(pos); }}
+      onChange={(e) => setScrubPos(Number(e.target.value))}
+      onMouseUp={(e) => {
+        const v = Number((e.target as HTMLInputElement).value);
+        if (audioRef.current && dur) audioRef.current.currentTime = (v / 100) * dur;
+        setPos(v); setIsDragging(false);
+      }}
+      onTouchEnd={(e) => {
+        const v = Number((e.currentTarget as HTMLInputElement).value);
+        if (audioRef.current && dur) audioRef.current.currentTime = (v / 100) * dur;
+        setPos(v); setIsDragging(false);
+      }}
+    />
+  );
+
   return (
-    <div className="space-y-4">
+    <div>
       <audio ref={audioRef} src={clip.url} preload="auto"
         onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
         onLoadedMetadata={(e) => setDur(e.currentTarget.duration || 0)}
@@ -372,136 +358,90 @@ function ClipStep(props: {
           setMaxPct((m) => Math.max(m, Math.round(pct)));
         }} />
 
-      {props.resumed && phase === "listen" && <p className="surface rounded-2xl bg-brand-soft px-4 py-3 text-sm">{t.resumeNote}</p>}
+      {props.resumed && phase === "listen" && <p className="mb-6 border-l-2 border-signal pl-3 text-[1rem]">{t.resumeNote}</p>}
 
       {phase === "listen" ? (
-        <Card className="text-center">
-          <p className="text-sm font-semibold uppercase tracking-wider text-brand">{t.clipOf(index + 1, total)}</p>
-          <h1 className="font-display mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{t.listenTitle}</h1>
-          <div className="mt-7 rounded-3xl bg-card2 p-5">
-            <Waveform seed={clip.id * 1.3} progress={pos} playing={playing} />
-            {/* Seekable scrub bar */}
-            <div className="mt-4 px-1">
-              <input
-                type="range" min={0} max={100} step={0.1}
-                value={isDragging ? scrubPos : pos}
-                disabled={!dur}
-                aria-label="Audio seek"
-                className="slider-input w-full"
-                style={{ "--pct": `${isDragging ? scrubPos : pos}%` } as React.CSSProperties}
-                onMouseDown={() => { setIsDragging(true); setScrubPos(pos); }}
-                onTouchStart={() => { setIsDragging(true); setScrubPos(pos); }}
-                onChange={(e) => setScrubPos(Number(e.target.value))}
-                onMouseUp={(e) => {
-                  const v = Number((e.target as HTMLInputElement).value);
-                  if (audioRef.current && dur) audioRef.current.currentTime = (v / 100) * dur;
-                  setPos(v); setIsDragging(false);
-                }}
-                onTouchEnd={(e) => {
-                  const v = Number((e.currentTarget as HTMLInputElement).value);
-                  if (audioRef.current && dur) audioRef.current.currentTime = (v / 100) * dur;
-                  setPos(v); setIsDragging(false);
-                }}
-              />
-            </div>
-            <div className="mt-1 flex justify-between text-xs tabular-nums text-muted">
-              <span>{mmss(isDragging ? (scrubPos / 100) * dur : cur)}</span>
-              <span>{dur ? mmss(dur) : "–:––"}</span>
-            </div>
+        <section className="rise">
+          <div className="flex items-baseline justify-between">
+            <span className="label !text-ink">{t.clipOf(index + 1, total)}</span>
+            <span className="label numeral">{mmss(isDragging ? (scrubPos / 100) * dur : cur)} / {dur ? mmss(dur) : "–:––"}</span>
           </div>
-          <button onClick={toggle} aria-label={playing ? t.pause : t.play}
-            className="pop mx-auto mt-6 grid h-20 w-20 place-items-center rounded-full bg-brand text-brand-ink shadow-[0_10px_24px_-8px_var(--brand)] transition hover:brightness-110 active:scale-95">
-            {playing ? <Pause size={32} fill="currentColor" /> : maxPct >= 99 ? <RotateCcw size={30} /> : <Play size={32} fill="currentColor" className="ml-1" />}
-          </button>
-          <p className={`mt-4 min-h-10 text-sm ${audioFailed ? "text-accent" : "text-muted"}`}>
-            {audioFailed ? t.audioError : unlocked ? t.listenDone : t.listenPrompt}
-          </p>
-          {err && <p className="mb-2 text-sm text-accent" role="alert">{err}</p>}
-          <button disabled={!unlocked || busy} onClick={() => (nq ? setPhase("ask") : save())} className={`${btnPrimary} mt-2`}>
-            {busy ? t.saving : nq ? <>{t.toQuestions} <ArrowRight size={20} /></> : last ? t.finish : t.next}
-          </button>
-        </Card>
-      ) : (
-        <>
-          {/* Mini seekable audio bar */}
-          <div className="surface rounded-2xl p-3">
-            <div className="flex items-center gap-3">
-              <button onClick={toggle} aria-label={playing ? t.pause : t.replay}
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-soft text-brand transition hover:brightness-95 active:scale-95">
-                {playing ? <Pause size={18} fill="currentColor" /> : <RotateCcw size={18} />}
-              </button>
-              <div className="min-w-0 flex-1"><Waveform compact seed={clip.id * 1.3} progress={pos} playing={playing} /></div>
-              <span className="shrink-0 text-xs tabular-nums text-muted">{mmss(cur)}{dur ? ` / ${mmss(dur)}` : ""}</span>
-            </div>
-            {/* Seek scrubber */}
-            <div className="mt-2 px-1">
-              <input
-                type="range" min={0} max={100} step={0.1}
-                value={isDragging ? scrubPos : pos}
-                disabled={!dur}
-                aria-label="Audio seek"
-                className="slider-input w-full"
-                style={{ "--pct": `${isDragging ? scrubPos : pos}%` } as React.CSSProperties}
-                onMouseDown={() => { setIsDragging(true); setScrubPos(pos); }}
-                onTouchStart={() => { setIsDragging(true); setScrubPos(pos); }}
-                onChange={(e) => setScrubPos(Number(e.target.value))}
-                onMouseUp={(e) => {
-                  const v = Number((e.target as HTMLInputElement).value);
-                  if (audioRef.current && dur) audioRef.current.currentTime = (v / 100) * dur;
-                  setPos(v); setIsDragging(false);
-                }}
-                onTouchEnd={(e) => {
-                  const v = Number((e.currentTarget as HTMLInputElement).value);
-                  if (audioRef.current && dur) audioRef.current.currentTime = (v / 100) * dur;
-                  setPos(v); setIsDragging(false);
-                }}
-              />
-            </div>
-            {/* Back to full listen view */}
-            <button
-              onClick={() => { if (audioRef.current) audioRef.current.pause(); setPhase("listen"); }}
-              className="mt-2 flex items-center gap-1.5 text-xs font-medium text-muted transition hover:text-brand">
-              <ArrowLeft size={13} /> Back to audio
-            </button>
+          <h1 className="mt-4 text-[2.4rem] font-medium leading-[1.05] tracking-[-0.02em] sm:text-[3rem]">{t.listenTitle}</h1>
+
+          <div className="mt-9 border-y border-ink py-6">
+            <Waveform seed={clip.id * 1.3} progress={pos} />
+            <div className="mt-3">{scrubber}</div>
           </div>
 
-          <Card className="!p-6 sm:!p-8">
-            <div className="mb-5 flex items-center justify-between">
-              <span className="text-sm font-semibold uppercase tracking-wider text-brand">{t.questionOf(qi + 1, nq)}</span>
-              <div className="flex gap-1.5" aria-hidden>
-                {questions.map((_, i) => <span key={i} className={`h-1.5 rounded-full transition-all ${i === qi ? "w-6 bg-brand" : i < qi ? "w-3 bg-brand/60" : "w-3 bg-line"}`} />)}
+          <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
+            <button onClick={toggle} aria-label={playing ? t.pause : t.play} className="btn btn-outline min-w-[10rem]">
+              {playing ? <Pause size={16} fill="currentColor" /> : maxPct >= 99 ? <RotateCcw size={16} /> : <Play size={16} fill="currentColor" />}
+              {playing ? t.pause : maxPct >= 99 ? t.replay : t.play}
+            </button>
+            <p className={`min-w-0 flex-1 text-[1.02rem] italic leading-snug ${audioFailed ? "text-signal not-italic" : "text-muted"}`}>
+              {audioFailed ? t.audioError : unlocked ? t.listenDone : t.listenPrompt}
+            </p>
+          </div>
+
+          {err && <p className="mt-5 border-l-2 border-signal pl-3 text-signal" role="alert">{err}</p>}
+          <button disabled={!unlocked || busy} onClick={() => (nq ? setPhase("ask") : save())} className="btn mt-10 w-full sm:w-auto sm:min-w-[16rem]">
+            {busy ? t.saving : nq ? <>{t.toQuestions} <ArrowRight size={16} /></> : last ? t.finish : t.next}
+          </button>
+        </section>
+      ) : (
+        <section>
+          {/* compact player, kept above the questions so the clip can be replayed or scrubbed */}
+          <div className="border-y border-ink py-3">
+            <div className="flex items-center gap-4">
+              <button onClick={toggle} aria-label={playing ? t.pause : t.replay} className="btn btn-outline !min-h-10 !px-3">
+                {playing ? <Pause size={14} fill="currentColor" /> : <RotateCcw size={14} />}
+              </button>
+              <div className="min-w-0 flex-1"><Waveform compact seed={clip.id * 1.3} progress={pos} /></div>
+              <span className="label numeral shrink-0">{mmss(cur)}{dur ? ` / ${mmss(dur)}` : ""}</span>
+            </div>
+            <div className="mt-1">{scrubber}</div>
+            <div className="flex items-center justify-between">
+              <button onClick={() => { if (audioRef.current) audioRef.current.pause(); setPhase("listen"); }} className="btn-quiet !py-1">
+                <ArrowLeft size={13} /> Back to audio
+              </button>
+              <span className="label">{t.clipOf(index + 1, total)}</span>
+            </div>
+          </div>
+
+          <div className="mt-10">
+            <div className="flex items-center justify-between">
+              <span className="label !text-ink">{t.questionOf(qi + 1, nq)}</span>
+              <div className="flex gap-1" aria-hidden>
+                {questions.map((_, i) => <span key={i} className={`h-[3px] w-4 ${i === qi ? "bg-signal" : i < qi ? "bg-ink" : "bg-rule"}`} />)}
               </div>
             </div>
-            <div key={q.id} className="slide-in">
-              <QuestionField q={q} t={t} value={answers[q.id]} onChange={(v) => setAnswer(q, v)} big />
+            <div key={q.id} className="slide-in mt-5">
+              <QuestionField q={q} t={t} value={answers[q.id]} onChange={(v) => setAnswers((a) => ({ ...a, [q.id]: v }))} big />
             </div>
-            {err && <p className="mt-4 rounded-xl bg-accent-soft p-3 text-sm text-accent" role="alert">{err}</p>}
-            <div className="mt-7 flex items-center gap-2">
-              {qi > 0 && <button className={btnGhost} onClick={() => { if (timer.current) clearTimeout(timer.current); setQi(qi - 1); }}><ArrowLeft size={18} /> {t.back}</button>}
+            {err && <p className="mt-5 border-l-2 border-signal pl-3 text-signal" role="alert">{err}</p>}
+            <div className="mt-10 flex items-center gap-4 border-t border-rule pt-5">
+              {qi > 0 && <button className="btn-quiet" onClick={() => setQi(qi - 1)}><ArrowLeft size={13} /> {t.back}</button>}
               <div className="flex-1" />
-              {!q.required && !answered(q, answers) && !isLastQ && (
-                <button className={btnGhost} onClick={goNext}>{t.skip}</button>
-              )}
-              <button disabled={!ready || busy} onClick={goNext} className={`${btnPrimary} !w-auto px-7`}>
-                {busy ? t.saving : isLastQ ? (last ? t.finish : t.next) : t.nextQuestion} {!busy && <ArrowRight size={20} />}
+              {!q.required && !answered(q, answers) && !isLastQ && <button className="btn-quiet" onClick={goNext}>{t.skip}</button>}
+              <button disabled={!ready || busy} onClick={goNext} className="btn">
+                {busy ? t.saving : isLastQ ? (last ? t.finish : t.next) : t.nextQuestion} {!busy && <ArrowRight size={16} />}
               </button>
             </div>
-          </Card>
-        </>
+          </div>
+        </section>
       )}
     </div>
   );
 }
 
-/** One question: a range slider (scale) or a free-text box. */
-function QuestionField({ q, value, onChange, t, big, feedbackValue, onFeedbackChange }: {
+/** One question: a ruler-style slider (scale) or ruled notebook lines (free text). */
+function QuestionField({ q, value, onChange, t, big }: {
   q: Q; value: number | string | undefined; onChange: (v: number | string) => void; t: L; big?: boolean;
-  feedbackValue?: string; onFeedbackChange?: (v: string) => void;
 }) {
   const id = `q-${q.id}`;
   const title = (
-    <h2 className={`font-display font-semibold leading-snug tracking-tight ${big ? "text-2xl sm:text-[1.7rem]" : "text-lg"}`} id={`${id}-l`}>
-      {q.prompt}{!q.required && <span className="ml-2 align-middle font-sans text-sm font-normal text-muted">{t.optional}</span>}
+    <h2 className={`font-medium leading-[1.12] tracking-[-0.015em] ${big ? "text-[2rem] sm:text-[2.35rem]" : "text-[1.5rem]"}`} id={`${id}-l`}>
+      {q.prompt}{!q.required && <span className="label ml-3 align-middle">{t.optional}</span>}
     </h2>
   );
   if (q.kind === "text") {
@@ -509,72 +449,46 @@ function QuestionField({ q, value, onChange, t, big, feedbackValue, onFeedbackCh
       <div>
         {title}
         <textarea id={id} rows={5} maxLength={2000} value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)}
-          aria-labelledby={`${id}-l`} placeholder={t.textPlaceholder}
-          className="mt-5 w-full resize-none rounded-2xl border-2 border-line bg-card p-4 text-base outline-none transition focus:border-brand" />
-        <p className="mt-1 text-right text-xs text-muted">{((value as string) ?? "").length}/2000</p>
+          aria-labelledby={`${id}-l`} placeholder={t.textPlaceholder} className="ruled mt-6" />
+        <p className="label numeral mt-2 text-right">{((value as string) ?? "").length} / 2000</p>
       </div>
     );
   }
   const isSet = typeof value === "number";
-  // Until touched, the thumb rests at the middle but is shown as inactive and no value is displayed.
+  // Until touched, the marker rests at the middle but is shown hollow and no value is displayed.
   const sliderVal = isSet ? value : Math.round((q.min + q.max) / 2);
   const pct = ((sliderVal - q.min) / (q.max - q.min)) * 100;
   return (
     <div>
       {title}
-      <div className="mt-7">
-        {/* Current value badge */}
-        <div className="mb-4 flex justify-center">
-          <span className={`inline-flex h-12 w-12 items-center justify-center rounded-full text-xl font-bold transition ${isSet ? "bg-brand text-brand-ink shadow-[0_6px_18px_-6px_var(--brand)]" : "border-2 border-dashed border-line text-muted"}`}>
-            {isSet ? sliderVal : "–"}
-          </span>
+      <div className="mt-8">
+        <div className="flex items-end justify-between">
+          <span className={`numeral text-[5.5rem] leading-[0.85] tracking-[-0.04em] ${isSet ? "text-signal" : "text-rule"}`} aria-live="polite">{isSet ? sliderVal : "–"}</span>
+          <span className="label pb-1">{isSet ? `out of ${q.max}` : "Tap or drag the ruler"}</span>
         </div>
-        {/* Slider */}
-        <div className="relative px-1">
+        <div className="mt-5">
           <input
-            id={id}
-            type="range"
-            min={q.min}
-            max={q.max}
-            step={1}
-            value={sliderVal}
+            id={id} type="range" min={q.min} max={q.max} step={1} value={sliderVal}
             aria-labelledby={`${id}-l`}
             onChange={(e) => onChange(Number(e.target.value))}
-            // Tapping exactly where the thumb rests fires no change event, so record the value on release too.
+            // Tapping exactly where the marker rests fires no change event, so record the value on release too.
             onPointerUp={(e) => { if (!isSet) onChange(Number(e.currentTarget.value)); }}
             onKeyUp={(e) => { if (!isSet) onChange(Number(e.currentTarget.value)); }}
-            className={`slider-input w-full ${isSet ? "" : "slider-unset"}`}
+            className={`slider-input ${isSet ? "" : "slider-unset"}`}
             style={{ "--pct": `${pct}%` } as React.CSSProperties}
           />
-          {/* Tick marks */}
-          <div className="pointer-events-none mt-2 flex justify-between px-0.5" aria-hidden>
+          <div className="pointer-events-none flex justify-between px-[11px]" aria-hidden>
             {Array.from({ length: q.max - q.min + 1 }, (_, i) => q.min + i).map((v) => (
-              <span key={v} className={`text-[11px] tabular-nums font-medium transition-colors ${
-                isSet && v === sliderVal ? "text-brand" : "text-muted/60"
-              }`}>{v}</span>
+              <span key={v} className="flex w-0 flex-col items-center">
+                <i className={`block w-px ${isSet && v === sliderVal ? "h-3 bg-signal" : "h-2 bg-ink/50"}`} />
+                <span className={`numeral mt-1 text-[11px] ${isSet && v === sliderVal ? "text-signal" : "text-muted"}`}>{v}</span>
+              </span>
             ))}
           </div>
         </div>
-        {!isSet && <p className="mt-3 text-center text-xs text-muted">Tap or drag the slider to choose your rating</p>}
-        {/* Low / high labels */}
         {(q.low || q.high) && (
-          <div className="mt-3 flex justify-between gap-4 text-sm font-medium text-muted">
+          <div className="mt-4 flex justify-between gap-6 text-[1.02rem] italic text-muted">
             <span>{q.low}</span><span className="text-right">{q.high}</span>
-          </div>
-        )}
-        {/* Feedback textarea */}
-        {onFeedbackChange !== undefined && (
-          <div className="mt-5">
-            <label htmlFor={`${id}-fb`} className="mb-1.5 block text-sm font-medium text-muted">Your feedback <span className="font-normal">(optional)</span></label>
-            <textarea
-              id={`${id}-fb`}
-              rows={3}
-              maxLength={1000}
-              value={feedbackValue ?? ""}
-              onChange={(e) => onFeedbackChange(e.target.value)}
-              placeholder="Any thoughts on this rating…"
-              className="w-full resize-none rounded-2xl border-2 border-line bg-card p-3.5 text-sm outline-none transition focus:border-brand"
-            />
           </div>
         )}
       </div>
@@ -594,47 +508,38 @@ function FinalStep({ t, questions, onDone }: { t: L; questions: Q[]; onDone: (a:
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   return (
-    <Card>
-      <h1 className="font-display text-3xl font-semibold tracking-tight">{t.finalTitle}</h1>
-      <p className="mt-1.5 text-muted">{t.finalLead}</p>
-      <div className="mt-7 space-y-8">
+    <section className="rise">
+      <h1 className="text-[2.4rem] font-medium leading-[1.05] tracking-[-0.02em] sm:text-[3rem]">{t.finalTitle}</h1>
+      <p className="mt-3 text-[1.15rem] text-muted">{t.finalLead}</p>
+      <div className="mt-8">
         {questions.map((q) => (
-          <QuestionField key={q.id} q={q} t={t} value={answers[q.id]} onChange={(v) => setAnswers((a) => ({ ...a, [q.id]: v }))} />
+          <div key={q.id} className="border-t border-rule py-8">
+            <QuestionField q={q} t={t} value={answers[q.id]} onChange={(v) => setAnswers((a) => ({ ...a, [q.id]: v }))} />
+          </div>
         ))}
       </div>
-      {err && <p className="mt-4 rounded-xl bg-accent-soft p-3 text-sm text-accent" role="alert">{err}</p>}
-      <button disabled={!canSubmit(questions, answers) || busy} className={`${btnPrimary} mt-8`}
+      {err && <p className="border-l-2 border-signal pl-3 text-signal" role="alert">{err}</p>}
+      <button disabled={!canSubmit(questions, answers) || busy} className="btn mt-4 w-full sm:w-auto sm:min-w-[14rem]"
         onClick={async () => {
           setBusy(true); setErr(null);
           try { await onDone(answers); } catch { setErr(t.saveError); setBusy(false); }
         }}>
-        {busy ? t.saving : <>{t.finish} <Check size={20} /></>}
+        {busy ? t.saving : <>{t.finish} <Check size={16} /></>}
       </button>
-    </Card>
+    </section>
   );
 }
 
 function Done({ t, study }: { t: L; study: StudyInfo }) {
-  const colors = ["var(--brand)", "var(--accent)", "#f2c14e", "#7aa2f7", "#e8838f"];
   return (
-    <Card className="relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-full" aria-hidden>
-        {Array.from({ length: 26 }, (_, i) => (
-          <span key={i} className="confetti-piece" style={{
-            left: `${(i * 37) % 100}%`, background: colors[i % colors.length], animationDelay: `${(i % 9) * 0.12}s`,
-            ["--dx" as string]: `${((i % 7) - 3) * 24}px`, ["--rot" as string]: `${200 + i * 40}deg`,
-          } as React.CSSProperties} />
-        ))}
+    <section className="rise">
+      <span className="stamp label !text-signal inline-block border-2 border-signal px-3 py-1.5 tracking-[0.18em]">Received</span>
+      <h1 className="mt-7 text-[2.6rem] font-medium leading-[1.04] tracking-[-0.025em] sm:text-[3.4rem]">{t.thanksTitle}</h1>
+      <p className="mt-4 text-[1.2rem] text-muted">{t.thanksBody}</p>
+      <div className="mt-12 border-t border-ink pt-5">
+        <p className="label !text-ink">{t.debriefTitle}</p>
+        <p className="mt-3 text-[1.08rem] leading-[1.6] text-ink/85">{study.debrief || t.defaultDebrief(study.base_language, study.mix_language)}</p>
       </div>
-      <div className="relative text-center">
-        <div className="pop mx-auto grid h-20 w-20 place-items-center rounded-3xl bg-gradient-to-br from-brand to-brand-strong text-brand-ink shadow-lg"><PartyPopper size={36} /></div>
-        <h1 className="font-display mt-5 text-3xl font-semibold tracking-tight">{t.thanksTitle}</h1>
-        <p className="mt-2 text-muted">{t.thanksBody}</p>
-      </div>
-      <div className="relative mt-8 rounded-2xl bg-card2 p-5">
-        <h2 className="font-display text-lg font-semibold">{t.debriefTitle}</h2>
-        <p className="mt-2 text-[0.95rem] leading-relaxed text-muted">{study.debrief || t.defaultDebrief(study.base_language, study.mix_language)}</p>
-      </div>
-    </Card>
+    </section>
   );
 }

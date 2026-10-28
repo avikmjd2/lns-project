@@ -16,8 +16,8 @@ export async function applyStudyQuestions(): Promise<void> {
         AND NOT EXISTS (SELECT 1 FROM answers a JOIN questions y ON y.id = a.question_id WHERE y.study_id = s.id)
       RETURNING q.study_id
     )
-    INSERT INTO questions (study_id, position, kind, scope, prompt, scale_min, scale_max, low_label, high_label)
-    SELECT d.study_id, v.pos, v.kind, 'clip', v.prompt, v.mn, v.mx, v.low, v.high
+    INSERT INTO questions (study_id, position, kind, scope, prompt, scale_min, scale_max, low_label, high_label, required)
+    SELECT d.study_id, v.pos, v.kind, 'clip', v.prompt, v.mn, v.mx, v.low, v.high, v.kind <> 'text'
     FROM (SELECT DISTINCT study_id FROM del) d
     CROSS JOIN (VALUES
       (1, 'scale', 'Rate this person on intelligence', 1, 10, 'Not at all', 'Extremely'),
