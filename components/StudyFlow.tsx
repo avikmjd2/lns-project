@@ -304,6 +304,8 @@ function ClipStep(props: {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [pos, setPos] = useState(0);
+  const [scrubPos, setScrubPos] = useState(0);   // controlled while dragging
+  const [isDragging, setIsDragging] = useState(false);
   const [maxPct, setMaxPct] = useState(0);
   const [dur, setDur] = useState(0);
   const [cur, setCur] = useState(0);
@@ -366,7 +368,8 @@ function ClipStep(props: {
         onTimeUpdate={(e) => {
           const a = e.currentTarget; setCur(a.currentTime); if (!a.duration) return;
           const pct = (a.currentTime / a.duration) * 100;
-          setPos(pct); setMaxPct((m) => Math.max(m, Math.round(pct)));
+          if (!isDragging) { setPos(pct); setScrubPos(pct); }
+          setMaxPct((m) => Math.max(m, Math.round(pct)));
         }} />
 
       {props.resumed && phase === "listen" && <p className="surface rounded-2xl bg-brand-soft px-4 py-3 text-sm">{t.resumeNote}</p>}
@@ -377,7 +380,34 @@ function ClipStep(props: {
           <h1 className="font-display mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{t.listenTitle}</h1>
           <div className="mt-7 rounded-3xl bg-card2 p-5">
             <Waveform seed={clip.id * 1.3} progress={pos} playing={playing} />
-            <div className="mt-2 flex justify-between text-xs tabular-nums text-muted"><span>{mmss(cur)}</span><span>{dur ? mmss(dur) : "–:––"}</span></div>
+            {/* Seekable scrub bar */}
+            <div className="mt-4 px-1">
+              <input
+                type="range" min={0} max={100} step={0.1}
+                value={isDragging ? scrubPos : pos}
+                disabled={!dur}
+                aria-label="Audio seek"
+                className="slider-input w-full"
+                style={{ "--pct": `${isDragging ? scrubPos : pos}%` } as React.CSSProperties}
+                onMouseDown={() => { setIsDragging(true); setScrubPos(pos); }}
+                onTouchStart={() => { setIsDragging(true); setScrubPos(pos); }}
+                onChange={(e) => setScrubPos(Number(e.target.value))}
+                onMouseUp={(e) => {
+                  const v = Number((e.target as HTMLInputElement).value);
+                  if (audioRef.current && dur) audioRef.current.currentTime = (v / 100) * dur;
+                  setPos(v); setIsDragging(false);
+                }}
+                onTouchEnd={(e) => {
+                  const v = Number((e.currentTarget as HTMLInputElement).value);
+                  if (audioRef.current && dur) audioRef.current.currentTime = (v / 100) * dur;
+                  setPos(v); setIsDragging(false);
+                }}
+              />
+            </div>
+            <div className="mt-1 flex justify-between text-xs tabular-nums text-muted">
+              <span>{mmss(isDragging ? (scrubPos / 100) * dur : cur)}</span>
+              <span>{dur ? mmss(dur) : "–:––"}</span>
+            </div>
           </div>
           <button onClick={toggle} aria-label={playing ? t.pause : t.play}
             className="pop mx-auto mt-6 grid h-20 w-20 place-items-center rounded-full bg-brand text-brand-ink shadow-[0_10px_24px_-8px_var(--brand)] transition hover:brightness-110 active:scale-95">
@@ -393,13 +423,46 @@ function ClipStep(props: {
         </Card>
       ) : (
         <>
-          <div className="surface flex items-center gap-3 rounded-2xl p-3">
-            <button onClick={toggle} aria-label={playing ? t.pause : t.replay}
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-soft text-brand transition hover:brightness-95 active:scale-95">
-              {playing ? <Pause size={18} fill="currentColor" /> : <RotateCcw size={18} />}
+          {/* Mini seekable audio bar */}
+          <div className="surface rounded-2xl p-3">
+            <div className="flex items-center gap-3">
+              <button onClick={toggle} aria-label={playing ? t.pause : t.replay}
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-soft text-brand transition hover:brightness-95 active:scale-95">
+                {playing ? <Pause size={18} fill="currentColor" /> : <RotateCcw size={18} />}
+              </button>
+              <div className="min-w-0 flex-1"><Waveform compact seed={clip.id * 1.3} progress={pos} playing={playing} /></div>
+              <span className="shrink-0 text-xs tabular-nums text-muted">{mmss(cur)}{dur ? ` / ${mmss(dur)}` : ""}</span>
+            </div>
+            {/* Seek scrubber */}
+            <div className="mt-2 px-1">
+              <input
+                type="range" min={0} max={100} step={0.1}
+                value={isDragging ? scrubPos : pos}
+                disabled={!dur}
+                aria-label="Audio seek"
+                className="slider-input w-full"
+                style={{ "--pct": `${isDragging ? scrubPos : pos}%` } as React.CSSProperties}
+                onMouseDown={() => { setIsDragging(true); setScrubPos(pos); }}
+                onTouchStart={() => { setIsDragging(true); setScrubPos(pos); }}
+                onChange={(e) => setScrubPos(Number(e.target.value))}
+                onMouseUp={(e) => {
+                  const v = Number((e.target as HTMLInputElement).value);
+                  if (audioRef.current && dur) audioRef.current.currentTime = (v / 100) * dur;
+                  setPos(v); setIsDragging(false);
+                }}
+                onTouchEnd={(e) => {
+                  const v = Number((e.currentTarget as HTMLInputElement).value);
+                  if (audioRef.current && dur) audioRef.current.currentTime = (v / 100) * dur;
+                  setPos(v); setIsDragging(false);
+                }}
+              />
+            </div>
+            {/* Back to full listen view */}
+            <button
+              onClick={() => { if (audioRef.current) audioRef.current.pause(); setPhase("listen"); }}
+              className="mt-2 flex items-center gap-1.5 text-xs font-medium text-muted transition hover:text-brand">
+              <ArrowLeft size={13} /> Back to audio
             </button>
-            <div className="min-w-0 flex-1"><Waveform compact seed={clip.id * 1.3} progress={pos} playing={playing} /></div>
-            <span className="pr-1 text-xs font-medium text-muted">{t.replay}</span>
           </div>
 
           <Card className="!p-6 sm:!p-8">
