@@ -18,13 +18,17 @@ export async function applyStudyQuestions(): Promise<void> {
       RETURNING q.study_id
     )
     INSERT INTO questions (study_id, position, kind, scope, prompt, scale_min, scale_max, low_label, high_label)
-    SELECT d.study_id, v.pos, 'scale', 'clip', v.prompt, 1, 10, v.low, v.high
+    SELECT d.study_id, v.pos, v.kind, 'clip', v.prompt, v.mn, v.mx, v.low, v.high
     FROM (SELECT DISTINCT study_id FROM del) d
     CROSS JOIN (VALUES
-      (1, 'Rate this person on intelligence', 'Not at all', 'Extremely'),
-      (2, 'Rate this person on friendliness', 'Not at all', 'Extremely'),
-      (3, 'Rate this person on sense of humor', 'Not at all', 'Extremely'),
-      (4, 'Rate this person on trustworthiness', 'Not at all', 'Extremely'),
-      (5, 'How likely would you be to talk to this person if he/she approached you?', 'Not at all likely', 'Very likely')
-    ) AS v(pos, prompt, low, high)`;
+      (1, 'scale', 'Rate this person on intelligence', 1, 10, 'Not at all', 'Extremely'),
+      (2, 'scale', 'Rate this person on friendliness', 1, 10, 'Not at all', 'Extremely'),
+      (3, 'scale', 'Rate this person on sense of humor', 1, 10, 'Not at all', 'Extremely'),
+      (4, 'scale', 'Rate this person on trustworthiness', 1, 10, 'Not at all', 'Extremely'),
+      (5, 'scale', 'How likely would you be to talk to this person if he/she approached you?', 1, 10, 'Not at all likely', 'Very likely'),
+      (6, 'scale', 'Rate this person on leadership', 1, 10, 'Not at all', 'Extremely'),
+      (7, 'scale', 'Rate this person on entertainingness', 1, 10, 'Not at all', 'Extremely'),
+      (8, 'scale', 'Rate this person on ambition', 1, 10, 'Not at all', 'Extremely'),
+      (9, 'text',  'Any additional feedback about this speaker?', 1, 10, NULL, NULL)
+    ) AS v(pos, kind, prompt, mn, mx, low, high)`;
 }

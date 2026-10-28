@@ -87,3 +87,57 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .rise, .slide-in, .pop, .confetti-piece { animation: none; }
 }
+
+/* ── Range slider ──────────────────────────────────────────────── */
+.slider-input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 9999px;
+  /* Filled portion up to thumb, unfilled after */
+  background: linear-gradient(
+    to right,
+    var(--brand) 0%,
+    var(--brand) var(--pct, 50%),
+    var(--line)  var(--pct, 50%),
+    var(--line)  100%
+  );
+  outline: none;
+  cursor: pointer;
+}
+
+/* WebKit thumb */
+.slider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--brand);
+  border: 3px solid var(--card);
+  box-shadow: 0 0 0 2px var(--brand), 0 4px 12px -4px var(--brand);
+  cursor: grab;
+  transition: box-shadow 0.15s, transform 0.1s;
+}
+.slider-input::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.15);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 30%, transparent), 0 4px 12px -4px var(--brand);
+}
+
+/* Firefox thumb */
+.slider-input::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--brand);
+  border: 3px solid var(--card);
+  box-shadow: 0 0 0 2px var(--brand), 0 4px 12px -4px var(--brand);
+  cursor: grab;
+  transition: box-shadow 0.15s, transform 0.1s;
+}
+.slider-input::-moz-range-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.15);
+}

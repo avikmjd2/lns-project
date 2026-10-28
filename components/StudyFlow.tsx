@@ -309,11 +309,6 @@ function ClipStep(props: {
   }
   function setAnswer(q: Q, v: number | string) {
     setAnswers((a) => ({ ...a, [q.id]: v }));
-    // Scale taps move on automatically (except on the last question, which has an explicit button).
-    if (q.kind === "scale" && qi + 1 < nq) {
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => setQi((i) => Math.min(i + 1, nq - 1)), 320);
-    }
   }
 
   const last = index + 1 === total;
@@ -384,13 +379,10 @@ function ClipStep(props: {
               {!q.required && !answered(q, answers) && !isLastQ && (
                 <button className={btnGhost} onClick={goNext}>{t.skip}</button>
               )}
-              {(q.kind === "text" || isLastQ) && (
-                <button disabled={!ready || busy} onClick={goNext} className={`${btnPrimary} !w-auto px-7`}>
-                  {busy ? t.saving : isLastQ ? (last ? t.finish : t.next) : t.next} {!busy && <ArrowRight size={20} />}
-                </button>
-              )}
+              <button disabled={!ready || busy} onClick={goNext} className={`${btnPrimary} !w-auto px-7`}>
+                {busy ? t.saving : isLastQ ? (last ? t.finish : t.next) : t.next} {!busy && <ArrowRight size={20} />}
+              </button>
             </div>
-            {q.kind === "scale" && !isLastQ && <p className="mt-4 text-center text-xs text-muted">{t.tapToContinue}</p>}
           </Card>
         </>
       )}
@@ -398,9 +390,10 @@ function ClipStep(props: {
   );
 }
 
-/** One question: a scale of buttons (any range, e.g. 1-5 or 1-10) or a free-text box. */
-function QuestionField({ q, value, onChange, t, big }: {
+/** One question: a range slider (scale) or a free-text box. */
+function QuestionField({ q, value, onChange, t, big, feedbackValue, onFeedbackChange }: {
   q: Q; value: number | string | undefined; onChange: (v: number | string) => void; t: L; big?: boolean;
+  feedbackValue?: string; onFeedbackChange?: (v: string) => void;
 }) {
   const id = `q-${q.id}`;
   const title = (
@@ -419,23 +412,63 @@ function QuestionField({ q, value, onChange, t, big }: {
       </div>
     );
   }
-  const n = q.max - q.min + 1;
-  const cols = n <= 6 ? n : n <= 10 ? 5 : 6;
+  const sliderVal = typeof value === "number" ? value : Math.round((q.min + q.max) / 2);
+  const pct = ((sliderVal - q.min) / (q.max - q.min)) * 100;
   return (
     <div>
       {title}
-      <div className="mt-6 grid gap-2.5" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }} role="radiogroup" aria-labelledby={`${id}-l`}>
-        {Array.from({ length: n }, (_, i) => q.min + i).map((v) => (
-          <button key={v} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)}
-            className={`grid aspect-[5/4] place-items-center rounded-2xl border-2 text-2xl font-semibold tabular-nums transition active:scale-95 sm:aspect-[4/3] ${
-              value === v ? "pop border-brand bg-brand text-brand-ink shadow-[0_8px_18px_-8px_var(--brand)]" : "border-line bg-card hover:border-brand/60 hover:bg-brand-soft"}`}>
-            {v}
-          </button>
-        ))}
+      <div className="mt-7">
+        {/* Current value badge */}
+        <div className="mb-4 flex justify-center">
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-brand text-xl font-bold text-brand-ink shadow-[0_6px_18px_-6px_var(--brand)]">
+            {sliderVal}
+          </span>
+        </div>
+        {/* Slider */}
+        <div className="relative px-1">
+          <input
+            id={id}
+            type="range"
+            min={q.min}
+            max={q.max}
+            step={1}
+            value={sliderVal}
+            aria-labelledby={`${id}-l`}
+            onChange={(e) => onChange(Number(e.target.value))}
+            className="slider-input w-full"
+            style={{ "--pct": `${pct}%` } as React.CSSProperties}
+          />
+          {/* Tick marks */}
+          <div className="pointer-events-none mt-2 flex justify-between px-0.5" aria-hidden>
+            {Array.from({ length: q.max - q.min + 1 }, (_, i) => q.min + i).map((v) => (
+              <span key={v} className={`text-[11px] tabular-nums font-medium transition-colors ${
+                v === sliderVal ? "text-brand" : "text-muted/60"
+              }`}>{v}</span>
+            ))}
+          </div>
+        </div>
+        {/* Low / high labels */}
+        {(q.low || q.high) && (
+          <div className="mt-3 flex justify-between gap-4 text-sm font-medium text-muted">
+            <span>{q.low}</span><span className="text-right">{q.high}</span>
+          </div>
+        )}
+        {/* Feedback textarea */}
+        {onFeedbackChange !== undefined && (
+          <div className="mt-5">
+            <label htmlFor={`${id}-fb`} className="mb-1.5 block text-sm font-medium text-muted">Your feedback <span className="font-normal">(optional)</span></label>
+            <textarea
+              id={`${id}-fb`}
+              rows={3}
+              maxLength={1000}
+              value={feedbackValue ?? ""}
+              onChange={(e) => onFeedbackChange(e.target.value)}
+              placeholder="Any thoughts on this rating…"
+              className="w-full resize-none rounded-2xl border-2 border-line bg-card p-3.5 text-sm outline-none transition focus:border-brand"
+            />
+          </div>
+        )}
       </div>
-      {(q.low || q.high) && (
-        <div className="mt-3 flex justify-between gap-4 text-sm text-muted"><span>{q.low}</span><span className="text-right">{q.high}</span></div>
-      )}
     </div>
   );
 }
