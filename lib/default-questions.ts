@@ -54,18 +54,29 @@ export async function applyMissingQuestions(): Promise<void> {
 
   for (const { study_id } of studies) {
     const toAdd = [
-      { pos: 6, kind: "scale", prompt: "Rate this person on leadership",             mn: 1, mx: 10, low: "Not at all", high: "Extremely" },
-      { pos: 7, kind: "scale", prompt: "Rate this person on entertainingness",        mn: 1, mx: 10, low: "Not at all", high: "Extremely" },
-      { pos: 8, kind: "scale", prompt: "Rate this person on ambition",                mn: 1, mx: 10, low: "Not at all", high: "Extremely" },
-      { pos: 9, kind: "text",  prompt: "Any additional feedback about this speaker?", mn: 1, mx: 10, low: null,         high: null        },
+      { pos: 6, kind: "scale", prompt: "Rate this person on leadership",             mn: 1, mx: 10, low: "Not at all", high: "Extremely", required: true  },
+      { pos: 7, kind: "scale", prompt: "Rate this person on entertainingness",        mn: 1, mx: 10, low: "Not at all", high: "Extremely", required: true  },
+      { pos: 8, kind: "scale", prompt: "Rate this person on ambition",                mn: 1, mx: 10, low: "Not at all", high: "Extremely", required: true  },
+      { pos: 9, kind: "text",  prompt: "Any additional feedback about this speaker?", mn: 1, mx: 10, low: null,         high: null,        required: false },
     ];
     for (const q of toAdd) {
       await db`
         INSERT INTO questions (study_id, position, kind, scope, prompt, scale_min, scale_max, low_label, high_label, required)
-        SELECT ${study_id}, ${q.pos}, ${q.kind}, 'clip', ${q.prompt}, ${q.mn}, ${q.mx}, ${q.low}, ${q.high}, false
+        SELECT ${study_id}, ${q.pos}, ${q.kind}, 'clip', ${q.prompt}, ${q.mn}, ${q.mx}, ${q.low}, ${q.high}, ${q.required}
         WHERE NOT EXISTS (
           SELECT 1 FROM questions x WHERE x.study_id = ${study_id} AND x.prompt = ${q.prompt}
         )`;
     }
+    // Patch any previously-inserted rows that had required=false incorrectly set for scale questions.
+    await db`
+      UPDATE questions SET required = true
+      WHERE study_id = ${study_id}
+        AND kind = 'scale'
+        AND prompt IN (
+          'Rate this person on leadership',
+          'Rate this person on entertainingness',
+          'Rate this person on ambition'
+        )
+        AND required = false`;
   }
 }
