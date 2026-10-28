@@ -81,6 +81,16 @@ export const SCHEMA: string[] = [
   `ALTER TABLE studies ADD COLUMN IF NOT EXISTS defaults_applied BOOLEAN NOT NULL DEFAULT false`,
   // True when the person said they are a different person using a device that already completed the survey.
   `ALTER TABLE participants ADD COLUMN IF NOT EXISTS repeat_device BOOLEAN NOT NULL DEFAULT false`,
+  // Multiple-choice questions: the allowed answers live in questions.options; the chosen text is stored in answers.text_value.
+  `ALTER TABLE questions ADD COLUMN IF NOT EXISTS options TEXT[]`,
+  `ALTER TABLE questions DROP CONSTRAINT IF EXISTS questions_kind_check`,
+  `DO $$ BEGIN
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'questions_kind_check_v2') THEN
+       ALTER TABLE questions ADD CONSTRAINT questions_kind_check_v2 CHECK (kind IN ('scale','text','choice'));
+     END IF;
+   END $$`,
+  // Set once the similarity / naturalness / perceived-age / attitude / schooling questions have been added to a study.
+  `ALTER TABLE studies ADD COLUMN IF NOT EXISTS research_questions_applied BOOLEAN NOT NULL DEFAULT false`,
   // Add first_language to participants (upgrade).
   `ALTER TABLE participants ADD COLUMN IF NOT EXISTS first_language TEXT`,
   `CREATE INDEX IF NOT EXISTS answers_participant_idx ON answers (participant_id)`,

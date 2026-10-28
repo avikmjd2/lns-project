@@ -2,9 +2,9 @@ import Link from "next/link";
 import { Download } from "lucide-react";
 import { loadAdminCtx } from "@/lib/admin-ctx";
 import { sql, getQuestions } from "@/lib/db";
-import { getRatings } from "@/lib/admin-data";
+import { getFinalAnswers, getRatings } from "@/lib/admin-data";
 import {
-  DIMS, FAST_MINUTES, breakdown, crosstab, daily, funnel, median, quality, questionStats, timing, type DimKey, type PRow,
+  DIMS, FAST_MINUTES, breakdown, choiceClipStats, crosstab, daily, finalStats, funnel, median, quality, questionStats, timing, type DimKey, type PRow,
 } from "@/lib/responses-stats";
 import { DeleteParticipant, btn } from "@/components/admin/bits";
 import { Badge, BarRow, Histogram, PageHeader, Panel, Stats, TableShell, td, th } from "@/components/admin/ui";
@@ -37,11 +37,12 @@ export default async function Responses({ searchParams }: { searchParams: Promis
     FROM participants p WHERE p.study_id = ${study.id} ORDER BY p.started_at DESC`) as PRow[];
   const questions = await getQuestions(study.id);
   const ratings = await getRatings(study.id, questions);
+  const finals = await getFinalAnswers(study.id);
   const texts = (await db`
     SELECT a.text_value, q.prompt, q.scope, c.label AS clip_label
     FROM answers a JOIN questions q ON q.id = a.question_id JOIN participants p ON p.id = a.participant_id
     LEFT JOIN clips c ON c.id = a.clip_id
-    WHERE p.study_id = ${study.id} AND p.completed_at IS NOT NULL AND a.text_value IS NOT NULL
+    WHERE p.study_id = ${study.id} AND p.completed_at IS NOT NULL AND a.text_value IS NOT NULL AND q.kind = 'text'
     ORDER BY q.position, a.answered_at DESC`) as { text_value: string; prompt: string; scope: string; clip_label: string | null }[];
   const byPrompt = new Map<string, typeof texts>();
   for (const t of texts) (byPrompt.get(t.prompt) ?? byPrompt.set(t.prompt, []).get(t.prompt)!).push(t);
@@ -56,6 +57,8 @@ export default async function Responses({ searchParams }: { searchParams: Promis
   const gaps = breakdown(rows, ratings, dim);
   const cross = crosstab(rows, dim, dim.key === "gender" ? dimOf("combo") : dimOf("gender"));
   const qstats = questionStats(ratings, questions);
+  const cstats = choiceClipStats(ratings, questions);
+  const fstats = finalStats(rows, finals, questions);
   const ageMedian = median(rows.map((p) => p.age ?? NaN));
   const shown = rows.slice(0, rowLimit);
   const dur = (p: PRow) => (p.completed_at ? (new Date(p.completed_at).getTime() - new Date(p.started_at).getTime()) / 60000 : NaN);
@@ -213,6 +216,50 @@ export default async function Responses({ searchParams }: { searchParams: Promis
                     <p className="mt-3 text-[0.95rem] text-muted">
                       Male listeners <span className="numeral text-ink">{f2(s.maleMean)}</span> (n={s.nMale}) · Female listeners <span className="numeral text-ink">{f2(s.femaleMean)}</span> (n={s.nFemale})
                     </p>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          )}
+
+          {cstats.map((c) => (
+            <Panel key={c.q.id} title={c.q.prompt} description="How often each answer was chosen for each recording. Completed participants only. Useful as a check that the speakers are comparable.">
+              <TableShell>
+                <table className="w-full min-w-[520px] text-[0.95rem]">
+                  <thead><tr><th className={th}>Recording</th>{c.options.map((o) => <th key={o} className={th}>{o}</th>)}<th className={th}>Answers</th></tr></thead>
+                  <tbody>
+                    {c.rows.map((r) => (
+                      <tr key={r.label}>
+                        <td className={`${td} numeral text-[13px]`}>{r.label}</td>
+                        {r.counts.map((n, i) => <td key={i} className={`${td} numeral`}>{n}{r.n ? <span className="text-muted"> · {Math.round((n / r.n) * 100)}%</span> : null}</td>)}
+                        <td className={`${td} numeral`}>{r.n}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TableShell>
+            </Panel>
+          ))}
+
+          {fstats.length > 0 && (
+            <Panel title="End-of-survey questions" description="Asked once after all clips. Completed participants only.">
+              <div className="grid gap-x-10 gap-y-10 md:grid-cols-2">
+                {fstats.map((f) => (
+                  <div key={f.q.id} className="border-t border-ink pt-3">
+                    <p className="text-[1.08rem] leading-snug">{f.q.prompt}</p>
+                    {f.kind === "scale" ? (
+                      <>
+                        <p className="label mt-1"><span className="numeral">{f.n}</span> answers · mean <span className="numeral">{f2(f.mean)}</span> · SD <span className="numeral">{f2(f.sd)}</span></p>
+                        <div className="mt-3"><Histogram values={f.hist} start={f.q.scale_min} /></div>
+                        <p className="mt-3 text-[0.95rem] text-muted">
+                          Male listeners <span className="numeral text-ink">{f2(f.maleMean)}</span> (n={f.nMale}) · Female listeners <span className="numeral text-ink">{f2(f.femaleMean)}</span> (n={f.nFemale})
+                        </p>
+                      </>
+                    ) : (
+                      <div className="mt-3">
+                        {f.options.map((o) => <BarRow key={o.label} label={o.label} value={o.count} max={Math.max(1, ...f.options.map((x) => x.count))} total={f.n} />)}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

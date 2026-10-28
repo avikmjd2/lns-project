@@ -5,8 +5,8 @@ import { ArrowLeft, ArrowRight, Check, Pause, Play, RotateCcw } from "lucide-rea
 import { getLocale } from "@/locales";
 
 type Q = {
-  id: number; kind: "scale" | "text"; scope: "clip" | "final"; prompt: string;
-  min: number; max: number; low: string | null; high: string | null; required: boolean; clipIds: number[] | null;
+  id: number; kind: "scale" | "text" | "choice"; scope: "clip" | "final"; prompt: string;
+  min: number; max: number; low: string | null; high: string | null; required: boolean; clipIds: number[] | null; options: string[] | null;
 };
 type StudyInfo = {
   slug: string; name: string; locale: string; status: string;
@@ -544,6 +544,21 @@ function QuestionField({ q, value, onChange, t, big }: {
         <textarea id={id} rows={5} maxLength={2000} value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)}
           aria-labelledby={`${id}-l`} placeholder={t.textPlaceholder} className="ruled mt-6" />
         <p className="label numeral mt-2 text-right" aria-hidden>{((value as string) ?? "").length} / 2000</p>
+      </div>
+    );
+  }
+  if (q.kind === "choice") {
+    return (
+      <div>
+        {title}
+        <div role="radiogroup" aria-labelledby={`${id}-l`} className="mt-6 grid gap-2">
+          {(q.options ?? []).map((o) => (
+            <label key={o} className={`choice flex min-h-[3.25rem] cursor-pointer items-center has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-signal ${value === o ? "on" : ""}`}>
+              <input type="radio" name={id} value={o} checked={value === o} onChange={() => onChange(o)} className="sr-only" />
+              {o}
+            </label>
+          ))}
+        </div>
       </div>
     );
   }

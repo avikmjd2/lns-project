@@ -16,14 +16,14 @@ export async function POST(req: Request) {
   if (!/^[a-z0-9-]{2,30}$/.test(slug) || !name || !base) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   const db = sql();
   try {
-    await db`INSERT INTO studies (slug, name, base_language, mix_language, locale, status, defaults_applied) VALUES (${slug}, ${name}, ${base}, ${mix}, ${locale}, 'draft', true)`;
+    await db`INSERT INTO studies (slug, name, base_language, mix_language, locale, status, defaults_applied, research_questions_applied) VALUES (${slug}, ${name}, ${base}, ${mix}, ${locale}, 'draft', true, true)`;
   } catch {
     return NextResponse.json({ error: "Slug already exists" }, { status: 409 });
   }
   // Start from the first study's questions; they can be edited on the Questions page.
   await db`
-    INSERT INTO questions (study_id, position, kind, scope, prompt, scale_min, scale_max, low_label, high_label, required)
-    SELECT (SELECT id FROM studies WHERE slug = ${slug}), position, kind, scope, prompt, scale_min, scale_max, low_label, high_label, required
+    INSERT INTO questions (study_id, position, kind, scope, prompt, scale_min, scale_max, low_label, high_label, required, options)
+    SELECT (SELECT id FROM studies WHERE slug = ${slug}), position, kind, scope, prompt, scale_min, scale_max, low_label, high_label, required, options
     FROM questions WHERE study_id = (SELECT MIN(id) FROM studies WHERE slug <> ${slug})`;
   return NextResponse.json({ ok: true });
 }

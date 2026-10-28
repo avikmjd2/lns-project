@@ -82,3 +82,35 @@ export async function applyMissingQuestions(): Promise<void> {
   // From now on this study's question list belongs to the admin: never touch it again.
   await db`UPDATE studies SET defaults_applied = true WHERE NOT defaults_applied`;
 }
+
+const RESEARCH: { pos: number; kind: "scale" | "choice"; scope: "clip" | "final"; prompt: string; low?: string; high?: string; options?: string[] }[] = [
+  { pos: 9, kind: "scale", scope: "clip", prompt: "How much is this speaker like you?", low: "Not at all like me", high: "Very much like me" },
+  { pos: 10, kind: "scale", scope: "clip", prompt: "How natural does this speaker's way of speaking sound?", low: "Not natural at all", high: "Completely natural" },
+  { pos: 11, kind: "choice", scope: "clip", prompt: "How old does this speaker seem?", options: ["Under 25", "25–34", "35–44", "45–54", "55 or older"] },
+  { pos: 13, kind: "scale", scope: "final", prompt: "In general, how do you feel about people who mix Hindi and English when they speak?", low: "Very negatively", high: "Very positively" },
+  { pos: 14, kind: "choice", scope: "final", prompt: "In which language did you mostly study at school?", options: ["English", "Hindi", "English and Hindi equally", "Another language"] },
+];
+
+/**
+ * One-time top-up (per study, tracked by studies.research_questions_applied): adds similarity, naturalness and
+ * perceived-age questions after every clip, and the general attitude to code-mixing plus medium of schooling at
+ * the end. The attitude question is final-scope on purpose so it cannot prime the clip ratings.
+ */
+export async function applyResearchQuestions(): Promise<void> {
+  const db = sql();
+  const studies = (await db`
+    SELECT s.id AS study_id FROM studies s
+    WHERE NOT s.research_questions_applied AND EXISTS (
+      SELECT 1 FROM questions q WHERE q.study_id = s.id AND q.prompt = 'Rate this person on intelligence')`) as { study_id: number }[];
+  for (const { study_id } of studies) {
+    // Keep the optional feedback box last among the per-clip questions.
+    await db`UPDATE questions SET position = 12 WHERE study_id = ${study_id} AND prompt = 'Any additional feedback about this speaker?' AND position < 12`;
+    for (const q of RESEARCH) {
+      await db`
+        INSERT INTO questions (study_id, position, kind, scope, prompt, scale_min, scale_max, low_label, high_label, required, options)
+        SELECT ${study_id}, ${q.pos}, ${q.kind}, ${q.scope}, ${q.prompt}, 1, 10, ${q.low ?? null}, ${q.high ?? null}, true, ${q.options ?? null}::text[]
+        WHERE NOT EXISTS (SELECT 1 FROM questions x WHERE x.study_id = ${study_id} AND x.prompt = ${q.prompt})`;
+    }
+  }
+  await db`UPDATE studies SET research_questions_applied = true WHERE NOT research_questions_applied`;
+}

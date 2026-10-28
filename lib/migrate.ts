@@ -1,6 +1,6 @@
 import { sql } from "./db";
 import { SCHEMA, UPGRADES } from "./schema";
-import { applyStudyQuestions, applyMissingQuestions } from "./default-questions";
+import { applyStudyQuestions, applyMissingQuestions, applyResearchQuestions } from "./default-questions";
 
 let ready: Promise<void> | null = null;
 
@@ -15,11 +15,13 @@ async function run() {
       EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'participants' AND column_name = 'first_language') AS first_language,
       EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'participants_form_abcd') AS combos,
       EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'studies' AND column_name = 'defaults_applied') AS defaults_applied,
-      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'participants' AND column_name = 'repeat_device') AS repeat_device
-  `) as { studies: boolean; questions: boolean; clip_ids: boolean; old_ratings: boolean; first_language: boolean; combos: boolean; defaults_applied: boolean; repeat_device: boolean }[];
+      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'participants' AND column_name = 'repeat_device') AS repeat_device,
+      EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'questions_kind_check_v2') AS choice_kind,
+      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'studies' AND column_name = 'research_questions_applied') AS research_flag
+  `) as { studies: boolean; questions: boolean; clip_ids: boolean; old_ratings: boolean; first_language: boolean; combos: boolean; defaults_applied: boolean; repeat_device: boolean; choice_kind: boolean; research_flag: boolean }[];
   // The statements are idempotent; only run them when something is missing or outdated so that
   // the default questions are seeded once and not re-created after an admin deletes them.
-  if (!s.studies || !s.questions || !s.clip_ids || s.old_ratings || !s.first_language || !s.defaults_applied || !s.repeat_device) {
+  if (!s.studies || !s.questions || !s.clip_ids || s.old_ratings || !s.first_language || !s.defaults_applied || !s.repeat_device || !s.choice_kind || !s.research_flag) {
     for (const stmt of SCHEMA) await db.query(stmt);
   }
   // Allow clip combinations A-D on participants.form (the first schema only allowed A and B).
@@ -31,6 +33,8 @@ async function run() {
   // Add any newer questions (leadership, entertainingness, ambition, feedback) that may be
   // missing from studies that were migrated before these were added.
   await applyMissingQuestions();
+  // Add the similarity, naturalness, perceived-age, attitude and schooling questions (once per study).
+  await applyResearchQuestions();
 }
 
 /** Creates or upgrades the database tables on first use (once per server instance). */

@@ -330,6 +330,7 @@ function ClipPicker({ clips, value, onChange, disabled }: { clips: ClipOpt[]; va
 export function QuestionForm({ studyId, clips }: { studyId: number; clips: ClipOpt[] }) {
   const router = useRouter();
   const [f, setF] = useState({ prompt: "", kind: "scale", scope: "clip", scaleMin: 1, scaleMax: 5, low: "Not at all", high: "Very", required: true });
+  const [optionsText, setOptionsText] = useState("");
   const [clipIds, setClipIds] = useState<number[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -337,17 +338,21 @@ export function QuestionForm({ studyId, clips }: { studyId: number; clips: ClipO
     <form className="space-y-6" onSubmit={async (e) => {
       e.preventDefault(); setBusy(true); setErr("");
       try {
-        await call("POST", "/api/admin/questions", { studyId, ...f, clipIds: f.scope === "clip" ? clipIds : null });
-        setF({ ...f, prompt: "" }); router.refresh();
+        await call("POST", "/api/admin/questions", { studyId, ...f, clipIds: f.scope === "clip" ? clipIds : null, options: f.kind === "choice" ? optionsText.split("\n") : undefined });
+        setF({ ...f, prompt: "" }); setOptionsText(""); router.refresh();
       } catch (x) { setErr((x as Error).message); }
       setBusy(false);
     }}>
       <div><label className={label}>Question</label>
         <input aria-label="Question" className="field !py-3 !text-[1.1rem]" placeholder="e.g. How friendly does this speaker sound?" value={f.prompt} onChange={(e) => setF({ ...f, prompt: e.target.value })} required maxLength={300} /></div>
       <div className="grid gap-6 sm:grid-cols-2">
-        <div><p className={label}>Answer type</p><Seg value={f.kind as "scale"} options={[["scale", "Scale"], ["text", "Free text"]]} onChange={(v) => setF({ ...f, kind: v })} /></div>
+        <div><p className={label}>Answer type</p><Seg value={f.kind as "scale"} options={[["scale", "Scale"], ["choice", "Choice"], ["text", "Free text"]]} onChange={(v) => setF({ ...f, kind: v })} /></div>
         <div><p className={label}>Ask</p><Seg value={f.scope as "clip"} options={[["clip", "After a recording"], ["final", "Once, at the end"]]} onChange={(v) => setF({ ...f, scope: v })} /></div>
       </div>
+      {f.kind === "choice" && (
+        <div><label className={label}>Options (one per line, 2 to 8)</label>
+          <textarea aria-label="Options" className="field" rows={5} value={optionsText} onChange={(e) => setOptionsText(e.target.value)} placeholder={"English\nHindi\nAnother language"} /></div>
+      )}
       {f.kind === "scale" && (
         <div className="grid gap-5 sm:grid-cols-4">
           <div><label className={label}>From</label><input aria-label="From" type="number" className="field" min={0} max={10} value={f.scaleMin} onChange={(e) => setF({ ...f, scaleMin: Number(e.target.value) })} /></div>
@@ -368,7 +373,7 @@ export function QuestionForm({ studyId, clips }: { studyId: number; clips: ClipO
 
 export function QuestionRow({ q, n, clips, index }: {
   clips: ClipOpt[]; index: number;
-  q: { clip_ids: number[] | null; id: number; kind: string; scope: string; prompt: string; scale_min: number; scale_max: number; low_label: string | null; high_label: string | null; required: boolean };
+  q: { clip_ids: number[] | null; id: number; kind: string; scope: string; prompt: string; scale_min: number; scale_max: number; low_label: string | null; high_label: string | null; required: boolean; options?: string[] | null };
   n: number;
 }) {
   const router = useRouter();
@@ -386,7 +391,7 @@ export function QuestionRow({ q, n, clips, index }: {
         <div className="min-w-0">
           <p className="text-[1.15rem] leading-snug">{q.prompt}</p>
           <p className="label mt-1.5">
-            {q.kind === "scale" ? `Scale ${q.scale_min}–${q.scale_max}` : "Free text"} · {applies}{!q.required && " · optional"} · <span className="numeral">{n}</span> answer{n === 1 ? "" : "s"}
+            {q.kind === "scale" ? `Scale ${q.scale_min}–${q.scale_max}` : q.kind === "choice" ? `Choice of ${q.options?.length ?? 0}` : "Free text"} · {applies}{!q.required && " · optional"} · <span className="numeral">{n}</span> answer{n === 1 ? "" : "s"}
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -400,6 +405,9 @@ export function QuestionRow({ q, n, clips, index }: {
           <div><label className={label}>Question text</label>
             <input aria-label="Question text" className="field" value={prompt} maxLength={300} onChange={(e) => setPrompt(e.target.value)}
               onBlur={() => prompt.trim() && prompt !== q.prompt && patch({ prompt })} /></div>
+          {q.kind === "choice" && (
+            <div><p className={label}>Options (fixed once created)</p><p className="text-[1.02rem] leading-relaxed">{(q.options ?? []).join(" · ")}</p></div>
+          )}
           {q.kind === "scale" && (
             <div className="grid gap-5 sm:grid-cols-2">
               <div><label className={label}>Low-end label</label><input aria-label="Low-end label" className="field" defaultValue={q.low_label ?? ""} onBlur={(e) => e.target.value !== (q.low_label ?? "") && patch({ low: e.target.value })} /></div>

@@ -23,7 +23,7 @@ export type Question = {
   id: number;
   study_id: number;
   position: number;
-  kind: "scale" | "text";
+  kind: "scale" | "text" | "choice";
   scope: "clip" | "final";
   prompt: string;
   scale_min: number;
@@ -31,6 +31,8 @@ export type Question = {
   low_label: string | null;
   high_label: string | null;
   required: boolean;
+  /** Allowed answers for kind "choice"; null otherwise. */
+  options: string[] | null;
   /** null = asked for every clip; otherwise only for these clip ids (per-clip questions only). */
   clip_ids: number[] | null;
 };
@@ -58,6 +60,10 @@ export function validateAnswer(q: Question, v: unknown): { num: number | null; t
     const n = Number(v);
     if (!Number.isInteger(n) || n < q.scale_min || n > q.scale_max) return "invalid";
     return { num: n, text: null };
+  }
+  if (q.kind === "choice") {
+    const c = String(v);
+    return q.options?.includes(c) ? { num: null, text: c } : "invalid";
   }
   const s = String(v).trim();
   if (s.length > 2000) return "invalid";

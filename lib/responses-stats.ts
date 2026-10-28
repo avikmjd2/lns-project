@@ -145,3 +145,38 @@ export function questionStats(ratings: RatingRow[], questions: Question[]): Ques
     return { q, n: vals.length, mean: mean(vals.map((x) => x.v)), sd: sd(vals.map((x) => x.v)), hist, maleMean: mean(of("male")), femaleMean: mean(of("female")), nMale: of("male").length, nFemale: of("female").length };
   });
 }
+
+export type ChoiceClipStat = { q: Question; options: string[]; rows: { label: string; counts: number[]; n: number }[] };
+/** For each per-clip multiple-choice question (e.g. perceived age): how often each option was chosen for each recording. */
+export function choiceClipStats(ratings: RatingRow[], questions: Question[]): ChoiceClipStat[] {
+  return questions.filter((q) => q.kind === "choice" && q.scope === "clip").map((q) => {
+    const options = q.options ?? [];
+    const labels = [...new Set(ratings.map((r) => r.clip_label))].sort();
+    const rows = labels.map((label) => {
+      const vals = ratings.filter((r) => r.clip_label === label).map((r) => r.texts[q.id]).filter(Boolean);
+      return { label, counts: options.map((o) => vals.filter((v) => v === o).length), n: vals.length };
+    });
+    return { q, options, rows };
+  });
+}
+
+export type FinalStat =
+  | { kind: "scale"; q: Question; n: number; mean: number; sd: number; hist: number[]; maleMean: number; femaleMean: number; nMale: number; nFemale: number }
+  | { kind: "choice"; q: Question; n: number; options: { label: string; count: number }[] };
+/** Answers to the end-of-survey scale and choice questions (completed participants only). */
+export function finalStats(rows: PRow[], finals: Map<string, Map<number, string | number>>, questions: Question[]): FinalStat[] {
+  const done = rows.filter((p) => p.completed_at);
+  const out: FinalStat[] = [];
+  for (const q of questions.filter((x) => x.scope === "final" && x.kind !== "text")) {
+    const vals = done.map((p) => ({ v: finals.get(p.id)?.get(q.id), g: p.listener_gender })).filter((x) => x.v !== undefined && x.v !== "");
+    if (q.kind === "scale") {
+      const nums = vals.map((x) => ({ v: Number(x.v), g: x.g })).filter((x) => Number.isFinite(x.v));
+      const hist = Array.from({ length: q.scale_max - q.scale_min + 1 }, (_, i) => nums.filter((x) => x.v === q.scale_min + i).length);
+      const of = (g: string) => nums.filter((x) => x.g === g).map((x) => x.v);
+      out.push({ kind: "scale", q, n: nums.length, mean: mean(nums.map((x) => x.v)), sd: sd(nums.map((x) => x.v)), hist, maleMean: mean(of("male")), femaleMean: mean(of("female")), nMale: of("male").length, nFemale: of("female").length });
+    } else {
+      out.push({ kind: "choice", q, n: vals.length, options: (q.options ?? []).map((label) => ({ label, count: vals.filter((x) => x.v === label).length })) });
+    }
+  }
+  return out;
+}

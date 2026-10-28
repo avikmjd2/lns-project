@@ -18,13 +18,19 @@ export async function POST(req: Request) {
   const prompt = String(b?.prompt ?? "").trim();
   const kind = String(b?.kind);
   const scope = String(b?.scope ?? "clip");
-  if (!studyId || !prompt || prompt.length > 300 || !["scale", "text"].includes(kind) || !["clip", "final"].includes(scope)) return bad();
+  if (!studyId || !prompt || prompt.length > 300 || !["scale", "text", "choice"].includes(kind) || !["clip", "final"].includes(scope)) return bad();
   let min = 1, max = 5;
   if (kind === "scale") {
     min = Number(b?.scaleMin); max = Number(b?.scaleMax);
     if (!Number.isInteger(min) || !Number.isInteger(max) || min < 0 || max > 11 || max - min < 1 || max - min > 10) {
       return bad("Scale must have 2 to 11 points (e.g. 1-5, 1-10, 0-10)");
     }
+  }
+  let options: string[] | null = null;
+  if (kind === "choice") {
+    const raw: unknown[] = Array.isArray(b?.options) ? b.options : [];
+    options = [...new Set(raw.map((o) => String(o).trim()).filter(Boolean))];
+    if (options.length < 2 || options.length > 8 || options.some((o) => o.length > 80)) return bad("Give 2 to 8 options, each up to 80 characters");
   }
   const low = String(b?.low ?? "").trim() || null;
   const high = String(b?.high ?? "").trim() || null;
@@ -34,8 +40,8 @@ export async function POST(req: Request) {
   const db = sql();
   const pos = (await db`SELECT COALESCE(MAX(position), 0) + 1 AS n FROM questions WHERE study_id = ${studyId}`) as { n: number }[];
   const rows = await db`
-    INSERT INTO questions (study_id, position, kind, scope, prompt, scale_min, scale_max, low_label, high_label, required, clip_ids)
-    VALUES (${studyId}, ${pos[0].n}, ${kind}, ${scope}, ${prompt}, ${min}, ${max}, ${kind === "scale" ? low : null}, ${kind === "scale" ? high : null}, ${required}, ${clipIds}::int[])
+    INSERT INTO questions (study_id, position, kind, scope, prompt, scale_min, scale_max, low_label, high_label, required, clip_ids, options)
+    VALUES (${studyId}, ${pos[0].n}, ${kind}, ${scope}, ${prompt}, ${min}, ${max}, ${kind === "scale" ? low : null}, ${kind === "scale" ? high : null}, ${required}, ${clipIds}::int[], ${options}::text[])
     RETURNING id`;
   return NextResponse.json({ ok: true, id: rows[0].id });
 }
