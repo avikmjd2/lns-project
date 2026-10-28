@@ -141,3 +141,8 @@ body {
   cursor: grabbing;
   transform: scale(1.15);
 }
+
+/* Unanswered slider: no fill, grey thumb */
+.slider-input.slider-unset { background: var(--line); }
+.slider-input.slider-unset::-webkit-slider-thumb { background: var(--muted); box-shadow: none; }
+.slider-input.slider-unset::-moz-range-thumb { background: var(--muted); box-shadow: none; }

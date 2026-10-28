@@ -39,6 +39,7 @@ export const en = {
   pause: "Pause",
   replay: "Replay",
   next: "Next clip",
+  nextQuestion: "Next",
   finish: "Finish",
   optional: "(optional)",
   textPlaceholder: "Type your answer here…",

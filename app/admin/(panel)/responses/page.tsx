@@ -6,7 +6,7 @@ import { Badge, PageHeader, Panel, TableShell, td, th } from "@/components/admin
 
 export const dynamic = "force-dynamic";
 
-type P = { id: string; listener_gender: string; age: number | null; form: string; started_at: string; completed_at: string | null; n_rated: number; n_total: number };
+type P = { id: string; listener_gender: string; age: number | null; first_language: string | null; form: string; started_at: string; completed_at: string | null; n_rated: number; n_total: number };
 
 export default async function Responses({ searchParams }: { searchParams: Promise<{ study?: string }> }) {
   const ctx = await loadAdminCtx((await searchParams).study);
@@ -14,7 +14,7 @@ export default async function Responses({ searchParams }: { searchParams: Promis
   const { study } = ctx;
   const db = sql();
   const rows = (await db`
-    SELECT p.id, p.listener_gender, p.age, p.form, p.started_at, p.completed_at,
+    SELECT p.id, p.listener_gender, p.age, p.first_language, p.form, p.started_at, p.completed_at,
            (SELECT COUNT(*)::int FROM ratings r WHERE r.participant_id = p.id) AS n_rated,
            jsonb_array_length(p.clip_order) AS n_total
     FROM participants p WHERE p.study_id = ${study.id} ORDER BY p.started_at DESC`) as P[];
@@ -73,13 +73,13 @@ export default async function Responses({ searchParams }: { searchParams: Promis
         <h2 className="mb-3 text-base font-semibold">All participants</h2>
         <TableShell>
           <table className="w-full min-w-[560px] text-sm">
-            <thead className="border-b border-line"><tr><th className={th}>Started</th><th className={th}>Gender</th><th className={th}>Age</th><th className={th}>Form</th><th className={th}>Progress</th><th className={th}></th></tr></thead>
+            <thead className="border-b border-line"><tr><th className={th}>Started</th><th className={th}>Gender</th><th className={th}>Age</th><th className={th}>First language</th><th className={th}>Form</th><th className={th}>Progress</th><th className={th}></th></tr></thead>
             <tbody>
               {rows.length === 0 && <tr><td className={`${td} py-10 text-center text-muted`} colSpan={6}>No participants yet.</td></tr>}
               {rows.map((r) => (
                 <tr key={r.id} className="border-b border-line last:border-0 hover:bg-card2">
                   <td className={td}>{new Date(r.started_at).toLocaleString()}</td>
-                  <td className={`${td} capitalize`}>{r.listener_gender}</td><td className={td}>{r.age}</td><td className={td}>{r.form}</td>
+                  <td className={`${td} capitalize`}>{r.listener_gender}</td><td className={td}>{r.age}</td><td className={td}>{r.first_language ?? "–"}</td><td className={td}>{r.form}</td>
                   <td className={td}>{r.completed_at ? <Badge>Completed</Badge> : <Badge tone="muted">{r.n_rated}/{r.n_total} clips</Badge>}</td>
                   <td className={`${td} text-right`}><DeleteParticipant id={r.id} /></td>
                 </tr>

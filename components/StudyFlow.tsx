@@ -483,7 +483,7 @@ function ClipStep(props: {
                 <button className={btnGhost} onClick={goNext}>{t.skip}</button>
               )}
               <button disabled={!ready || busy} onClick={goNext} className={`${btnPrimary} !w-auto px-7`}>
-                {busy ? t.saving : isLastQ ? (last ? t.finish : t.next) : t.next} {!busy && <ArrowRight size={20} />}
+                {busy ? t.saving : isLastQ ? (last ? t.finish : t.next) : t.nextQuestion} {!busy && <ArrowRight size={20} />}
               </button>
             </div>
           </Card>
@@ -515,7 +515,9 @@ function QuestionField({ q, value, onChange, t, big, feedbackValue, onFeedbackCh
       </div>
     );
   }
-  const sliderVal = typeof value === "number" ? value : Math.round((q.min + q.max) / 2);
+  const isSet = typeof value === "number";
+  // Until touched, the thumb rests at the middle but is shown as inactive and no value is displayed.
+  const sliderVal = isSet ? value : Math.round((q.min + q.max) / 2);
   const pct = ((sliderVal - q.min) / (q.max - q.min)) * 100;
   return (
     <div>
@@ -523,8 +525,8 @@ function QuestionField({ q, value, onChange, t, big, feedbackValue, onFeedbackCh
       <div className="mt-7">
         {/* Current value badge */}
         <div className="mb-4 flex justify-center">
-          <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-brand text-xl font-bold text-brand-ink shadow-[0_6px_18px_-6px_var(--brand)]">
-            {sliderVal}
+          <span className={`inline-flex h-12 w-12 items-center justify-center rounded-full text-xl font-bold transition ${isSet ? "bg-brand text-brand-ink shadow-[0_6px_18px_-6px_var(--brand)]" : "border-2 border-dashed border-line text-muted"}`}>
+            {isSet ? sliderVal : "–"}
           </span>
         </div>
         {/* Slider */}
@@ -538,18 +540,22 @@ function QuestionField({ q, value, onChange, t, big, feedbackValue, onFeedbackCh
             value={sliderVal}
             aria-labelledby={`${id}-l`}
             onChange={(e) => onChange(Number(e.target.value))}
-            className="slider-input w-full"
+            // Tapping exactly where the thumb rests fires no change event, so record the value on release too.
+            onPointerUp={(e) => { if (!isSet) onChange(Number(e.currentTarget.value)); }}
+            onKeyUp={(e) => { if (!isSet) onChange(Number(e.currentTarget.value)); }}
+            className={`slider-input w-full ${isSet ? "" : "slider-unset"}`}
             style={{ "--pct": `${pct}%` } as React.CSSProperties}
           />
           {/* Tick marks */}
           <div className="pointer-events-none mt-2 flex justify-between px-0.5" aria-hidden>
             {Array.from({ length: q.max - q.min + 1 }, (_, i) => q.min + i).map((v) => (
               <span key={v} className={`text-[11px] tabular-nums font-medium transition-colors ${
-                v === sliderVal ? "text-brand" : "text-muted/60"
+                isSet && v === sliderVal ? "text-brand" : "text-muted/60"
               }`}>{v}</span>
             ))}
           </div>
         </div>
+        {!isSet && <p className="mt-3 text-center text-xs text-muted">Tap or drag the slider to choose your rating</p>}
         {/* Low / high labels */}
         {(q.low || q.high) && (
           <div className="mt-3 flex justify-between gap-4 text-sm font-medium text-muted">
