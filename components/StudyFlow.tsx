@@ -384,7 +384,7 @@ function ClipStep(props: {
           </div>
 
           {err && <p className="mt-5 border-l-2 border-signal pl-3 text-signal" role="alert">{err}</p>}
-          <button disabled={!unlocked || busy} onClick={() => (nq ? setPhase("ask") : save())} className="btn mt-10 w-full sm:w-auto sm:min-w-[16rem]">
+          <button disabled={busy} onClick={() => (nq ? setPhase("ask") : save())} className="btn mt-10 w-full sm:w-auto sm:min-w-[16rem]">
             {busy ? t.saving : nq ? <>{t.toQuestions} <ArrowRight size={16} /></> : last ? t.finish : t.next}
           </button>
         </section>

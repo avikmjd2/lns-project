@@ -26,7 +26,7 @@ export const en = {
   ageError: "Please enter an age between 18 and 99.",
   continue: "Continue",
   clipOf: (i: number, n: number) => `Clip ${i} of ${n}`,
-  listenPrompt: "Press play and listen to the whole clip. The questions unlock when you are done",
+  listenPrompt: "Press play and listen to the whole clip, then continue to the questions",
   listenDone: "Thanks for listening! Ready for a few quick questions?",
   audioError: "The clip couldn't load. Check your connection and press play to try again, or just continue to the questions without it.",
   listenTitle: "Listen to this speaker",
